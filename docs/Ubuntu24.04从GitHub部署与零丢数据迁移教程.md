@@ -1,10 +1,12 @@
-# 零基础：Ubuntu 24.04 LTS 从 GitHub 部署 PersonaLink，并安全迁移服务器
+# Ubuntu 24.04 LTS 从 GitHub 零基础部署 PersonaLink
 
 > 适用项目：`https://github.com/Abner199/PersonaLink_MySQL_20260821`  
 > 适用系统：Ubuntu Server 24.04 LTS（Noble Numbat）  
 > 部署方式：Nginx + Node.js 22 + Express + MySQL，先用公网 IP 验证，再选配域名和 HTTPS
 
-这是一份可以从头照着执行的主教程。命令中的 `你的公网IP`、`你的域名` 和密码都必须替换，尖括号不要原样输入。
+本文假定服务器是刚安装完成的 Ubuntu 24.04 LTS，除系统本身外什么都没有。从第一次 SSH 登录开始，依次完成软件安装、下载代码、配置 MySQL、构建前端、启动后端、配置 Nginx，以及可选的域名和 HTTPS。
+
+命令分为两类：标有“Windows PowerShell”的命令在自己的 Windows 电脑执行，其余 `bash` 命令均在 SSH 登录后的 Ubuntu 服务器执行。命令中的 `你的公网IP`、`你的域名` 和密码都是占位内容，必须替换为真实值，不要原样输入。
 
 ## 1. 先理解最终结构
 
@@ -57,16 +59,25 @@ uname -m
 ```bash
 sudo apt update
 sudo apt upgrade -y
-sudo apt install -y git curl ca-certificates nginx mysql-server
+sudo apt install -y git curl ca-certificates openssl nginx mysql-server
 ```
+
+上面三条命令依次用于刷新软件列表、安装系统更新、安装部署所需软件。如果升级提示需要重启，执行 `sudo reboot`，等待约一分钟后重新 SSH 登录。
 
 先允许 SSH，再启用 UFW，顺序不要反：
 
 ```bash
+# 先允许默认 22 端口的 SSH，避免启用防火墙后断开连接
 sudo ufw allow OpenSSH
+
+# 同时允许 Nginx 的 HTTP 80 和 HTTPS 443
 sudo ufw allow 'Nginx Full'
+
+# 启用防火墙；出现确认提示时输入 y
 sudo ufw enable
-sudo ufw status
+
+# 查看最终规则，不应出现 3003 和 3306
+sudo ufw status verbose
 ```
 
 如果启用 UFW 后 SSH 断开，通常是云安全组或 SSH 端口不是 22。此时使用云厂商网页控制台修复，不要反复重装系统。
@@ -85,34 +96,47 @@ sudo systemctl status nginx --no-pager
 本项目的 Vite 8 需要较新的 Node.js。Ubuntu 自带版本可能不满足要求，因此使用 NodeSource 的 Node.js 22 仓库：
 
 ```bash
+# 下载 NodeSource 的 Node.js 22 安装脚本
 curl -fsSL https://deb.nodesource.com/setup_22.x -o /tmp/nodesource_setup.sh
-less /tmp/nodesource_setup.sh
+
+# 添加 Node.js 22 软件源并安装 Node.js（npm 会一同安装）
 sudo -E bash /tmp/nodesource_setup.sh
 sudo apt install -y nodejs
+
+# Node.js 应显示 v22.x
 node -v
 npm -v
+
+# 删除已经用完的临时脚本
+rm /tmp/nodesource_setup.sh
 ```
 
-按 `q` 可退出 `less`。`node -v` 应为 `v22.x`；不要继续使用低于项目要求的版本。
+`node -v` 应为 `v22.x`；不要继续使用低于项目要求的版本。
 
 ## 6. 从 GitHub 下载项目
 
 ```bash
 sudo mkdir -p /srv/personalink
 sudo chown "$USER":"$USER" /srv/personalink
-git clone https://github.com/Abner199/PersonaLink_MySQL_20260821.git /srv/personalink
+# 只克隆用于生产的 main 分支
+git clone --branch main --single-branch \
+  https://github.com/Abner199/PersonaLink_MySQL_20260821.git \
+  /srv/personalink
+
 cd /srv/personalink
-git status
+git branch --show-current
+git log -1 --oneline
+git status --short
 ```
 
-公开仓库克隆不需要 GitHub 密码。若以后仓库改为私有，推荐在服务器配置只读 Deploy Key；不要把个人访问令牌写进脚本或仓库。
+应看到当前分支为 `main`，`git status --short` 应没有输出。公开仓库克隆不需要 GitHub 密码。若以后仓库改为私有，推荐在服务器配置只读 Deploy Key；不要把个人访问令牌写进脚本或仓库。
 
 ## 7. 创建 MySQL 数据库和应用账号
 
-生成一条至少 24 位、只用于 MySQL 的随机密码并临时记在安全位置：
+生成一条 48 位十六进制、只用于 MySQL 的随机密码，并保存在密码管理器中。十六进制密码不含引号等特殊字符，粘贴到 SQL 和 `.env` 时更不容易出错：
 
 ```bash
-openssl rand -base64 24
+openssl rand -hex 24
 ```
 
 进入 MySQL 管理终端：
@@ -145,6 +169,9 @@ EXIT;
 
 ```bash
 sudo mysql < /srv/personalink/backend/database/schema.sql
+
+# 应列出 classes、users、synonym_groups、standard_hobbies
+sudo mysql -e "SHOW TABLES FROM personalink;"
 ```
 
 创建后端配置：
@@ -178,6 +205,8 @@ sudo chmod 640 /srv/personalink/backend/.env
 ```bash
 cd /srv/personalink/backend
 npm ci --omit=dev
+
+# 使用与 .env 相同的连接方式测试应用账号；按提示输入数据库密码
 mysql -h 127.0.0.1 -u personalink -p -e "SHOW TABLES FROM personalink;"
 ```
 
@@ -362,21 +391,28 @@ cd /srv/personalink/backend && npm run db:verify
 
 ## 15. 日常更新代码
 
-先备份数据库，再更新。不要在服务器直接修改项目代码，否则 `git pull` 容易冲突。
+先备份数据库，再更新。不要在服务器直接修改项目代码，否则 `git pull` 容易冲突。以下第一条命令来自第 16 节；必须先配置并测试备份脚本。
 
 ```bash
+# 1. 先生成一份数据库备份，成功后再继续
+sudo /usr/local/sbin/backup-personalink
+
+# 2. 确认工作区干净，然后只允许快进更新
 cd /srv/personalink
-git status
+git status --short
 git pull --ff-only origin main
 
+# 3. 更新后端依赖并检查数据库
 cd backend
 npm ci --omit=dev
 npm run db:verify
 
+# 4. 更新前端依赖并重新构建
 cd ../frontend
 npm ci
 npm run build
 
+# 5. 重启服务并完成健康检查
 sudo systemctl restart personalink
 sudo nginx -t
 sudo systemctl reload nginx
@@ -387,49 +423,82 @@ curl http://127.0.0.1:3003/health
 
 ## 16. 每日 MySQL 备份
 
-先建立只有 root 能读的客户端配置，避免密码出现在命令历史：
+GitHub 只保存代码，不保存线上 MySQL 数据。用户、班级、资料和上传头像都在数据库中，必须单独备份。
+
+Ubuntu 的 MySQL 本机管理员默认通过系统身份验证，所以可用 `sudo mysqldump` 备份，不需要把 root 密码写入脚本。先创建仅 root 可访问的目录并手工备份一次：
 
 ```bash
-sudo nano /root/.my.cnf
-```
+# 创建权限为 700 的备份目录
+sudo install -d -m 700 /var/backups/personalink
 
-内容：
-
-```ini
-[client]
-host=127.0.0.1
-port=3306
-user=personalink
-password=替换为数据库强密码
-```
-
-设置权限并测试备份：
-
-```bash
-sudo chmod 600 /root/.my.cnf
-sudo mkdir -p /var/backups/personalink
-sudo mysqldump --defaults-extra-file=/root/.my.cnf \
+# pipefail 保证 mysqldump 或 gzip 任一失败时整条命令失败
+sudo bash -c 'set -o pipefail; umask 077; \
+  mysqldump \
   --single-transaction --routines --triggers --hex-blob \
-  --default-character-set=utf8mb4 personalink \
-  | gzip > /var/backups/personalink/personalink-$(date +%F-%H%M%S).sql.gz
+  --no-tablespaces --default-character-set=utf8mb4 personalink \
+  | gzip > "/var/backups/personalink/personalink-$(date +%F-%H%M%S).sql.gz"'
+
+# 确认文件存在且不是 0 字节，并计算完整性校验值
+sudo ls -lh /var/backups/personalink
 sudo sha256sum /var/backups/personalink/*.sql.gz
 ```
 
-备份成功不等于安全：至少再复制一份到另一台机器或对象存储。不要提交 SQL 到 GitHub。每月选择一份备份恢复到测试库，确认真的可用。
+`--single-transaction` 可在 InnoDB 表继续提供服务时获得一致备份；`--no-tablespaces` 避免不同 MySQL 权限配置导致备份失败。备份成功后，至少再复制一份到另一台机器或对象存储。不要提交 SQL 到 GitHub。
 
-可用 root 的定时任务每天 03:30 备份：
+接着创建自动备份脚本：
+
+```bash
+sudo nano /usr/local/sbin/backup-personalink
+```
+
+粘贴以下内容：
+
+```bash
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+BACKUP_DIR=/var/backups/personalink
+install -d -m 700 "$BACKUP_DIR"
+
+mysqldump --single-transaction --routines --triggers --hex-blob \
+  --no-tablespaces --default-character-set=utf8mb4 personalink \
+  | gzip > "$BACKUP_DIR/personalink-$(date +%F-%H%M%S).sql.gz"
+
+# 删除服务器本地超过 30 天的自动备份
+find "$BACKUP_DIR" -type f -name 'personalink-*.sql.gz' -mtime +30 -delete
+```
+
+保存后设置权限并手工测试：
+
+```bash
+# 只有 root 可以读写和执行脚本
+sudo chmod 700 /usr/local/sbin/backup-personalink
+
+# 必须先手工执行成功，再配置定时任务
+sudo /usr/local/sbin/backup-personalink
+sudo ls -lh /var/backups/personalink
+```
+
+最后使用 root 定时任务每天 03:30 备份：
 
 ```bash
 sudo crontab -e
 ```
 
-加入一行：
+第一次打开会要求选择编辑器，可以选 nano。在文件末尾加入：
 
 ```cron
-30 3 * * * /usr/bin/mysqldump --defaults-extra-file=/root/.my.cnf --single-transaction --routines --triggers --hex-blob --default-character-set=utf8mb4 personalink | /usr/bin/gzip > /var/backups/personalink/personalink-$(date +\%F-\%H\%M\%S).sql.gz
+# 每天凌晨 03:30 备份；错误和输出写入系统日志
+30 3 * * * /usr/local/sbin/backup-personalink 2>&1 | logger -t personalink-backup
 ```
 
-cron 中 `%` 必须写成 `\%`。先手工执行成功，再添加定时任务。
+以后可用下面的命令查看最近 7 天的备份任务日志：
+
+```bash
+sudo journalctl -t personalink-backup --since '7 days ago' --no-pager
+```
+
+备份文件存在不等于一定能恢复。建议每月选择一份备份恢复到测试库，核对用户数、班级数和管理员登录。
 
 ## 17. 服务器迁移前的核心原则
 
@@ -476,10 +545,12 @@ sudo systemctl is-active personalink
 仍在旧服务器：
 
 ```bash
-sudo mysqldump --defaults-extra-file=/root/.my.cnf \
-  --single-transaction --routines --triggers --hex-blob \
-  --default-character-set=utf8mb4 personalink \
-  | gzip > /var/backups/personalink/FINAL-personalink.sql.gz
+# 使用 pipefail，避免数据库导出失败后仍留下看似正常的 gzip 文件
+sudo bash -c 'set -o pipefail; umask 077; \
+  mysqldump --single-transaction --routines --triggers --hex-blob \
+  --no-tablespaces --default-character-set=utf8mb4 personalink \
+  | gzip > /var/backups/personalink/FINAL-personalink.sql.gz'
+
 sudo sha256sum /var/backups/personalink/FINAL-personalink.sql.gz
 ```
 
@@ -515,9 +586,15 @@ sha256sum /tmp/FINAL-personalink.sql.gz
 sudo systemctl stop personalink
 ```
 
-下面会覆盖新服务器 `personalink` 库中的同名表。确认这是新服务器且备份校验正确后执行：
+下面会删除并重建新服务器的 `personalink` 数据库。只有确认当前登录的是新服务器、备份校验值正确后才能执行：
 
 ```bash
+# 删除新服务器上的现有测试数据并重建空库；数据库账号授权仍会保留
+sudo mysql -e "DROP DATABASE IF EXISTS personalink; \
+  CREATE DATABASE personalink CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
+
+# 解压和导入任一步骤失败时都返回错误
+set -o pipefail
 gunzip -c /tmp/FINAL-personalink.sql.gz | sudo mysql personalink
 ```
 
