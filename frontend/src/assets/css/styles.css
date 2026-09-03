@@ -1,0 +1,511 @@
+/*
+  合并的样式文件
+  包含 animations.css 和 home-style.scss 的功能
+*/
+
+/* ==================== 全局样式 ==================== */
+@charset "utf-8";
+
+/* 全局样式 */
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: #333;
+  overflow-x: hidden;
+  font-family: "HarmonyOS_Regular", "Microsoft YaHei", sans-serif;
+}
+
+*,
+a,
+p {
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  text-decoration: none;
+  color: #fff;
+  box-sizing: border-box;
+
+  &:hover {
+    transition: 0.3s;
+  }
+}
+
+/* 链接悬停效果 */
+a:hover {
+  color: rgb(57, 159, 255);
+  text-decoration: underline;
+}
+
+/* 字体文件 */
+@font-face {
+  font-family: "Pacifico-Regular";
+  font-display: swap;
+  src: url("/font/Pacifico-Regular.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "UnidreamLED";
+  font-display: swap;
+  src: url("/font/UnidreamLED.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "HarmonyOS_Regular";
+  font-display: swap;
+  src: local("Microsoft YaHei"), local("SimHei"), local("Arial");
+}
+
+/* 基础样式 */
+#app {
+  position: relative;
+  top: 0;
+  left: 0;
+  width: 100%;
+  min-height: 100%;
+  z-index: 0;
+}
+
+/* 卡片样式 */
+.cards {
+  border-radius: 6px;
+  background-color: #00000040;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transform: scale(1);
+  transition:
+    backdrop-filter 0.3s,
+    transform 0.3s;
+  &:hover {
+    transform: scale(1.01);
+  }
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+/* 文字超出 */
+.text-hidden {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* Element Plus 组件样式覆盖 */
+.el-message {
+  --el-message-bg-color: #00000040 !important;
+  --el-message-text-color: #efefef !important;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-radius: 25px !important;
+  border-color: transparent !important;
+
+  .el-message__badge {
+    display: none;
+  }
+  .el-message__content {
+    white-space: nowrap;
+  }
+}
+
+.el-card {
+  border-radius: 8px !important;
+  border: 1px solid transparent !important;
+  background-color: transparent !important;
+  .el-card__header {
+    font-weight: bold;
+    padding: 16px 20px !important;
+    background-color: #ffffff30 !important;
+    border-bottom: 1px solid transparent !important;
+  }
+  .el-card__body {
+    padding: 0 !important;
+    background-color: #ffffff10 !important;
+  }
+}
+
+/* 覆盖原有样式，确保深色主题 */
+.glass-card {
+  border-radius: 6px;
+  background-color: #00000040;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+/* ==================== 动画样式 ==================== */
+/* 基础动画变量 */
+:root {
+  --animation-duration-fast: 0.15s;
+  --animation-duration-normal: 0.25s;
+  --animation-duration-slow: 0.4s;
+  --animation-easing: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --animation-easing-out: cubic-bezier(0.215, 0.61, 0.355, 1);
+  --animation-easing-in-out: cubic-bezier(0.645, 0.045, 0.355, 1);
+}
+
+/* 统一的轻盈触感：交互只使用 transform / opacity，避免造成滚动卡顿。 */
+button,
+input,
+select,
+.glass-card {
+  transition: transform 180ms cubic-bezier(.2, .9, .25, 1), box-shadow 220ms ease, background-color 220ms ease, border-color 220ms ease;
+}
+
+button:not(:disabled):active {
+  transform: translateY(1px) scale(0.975);
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid rgba(103, 232, 249, 0.34);
+  outline-offset: 2px;
+}
+
+@keyframes gentle-bob {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -4px, 0); }
+}
+
+.glass-button.primary:not(:disabled):hover {
+  animation: gentle-bob 1.8s ease-in-out infinite;
+}
+
+/* 减少动画的媒体查询 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* GPU加速类 */
+.gpu-accelerated {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* 优化的淡入动画 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 20px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -20px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes fade-blur-in {
+  from {
+    filter: blur(20px) brightness(0.3);
+    transform: scale(1.6);
+  }
+  to {
+    filter: blur(0) brightness(1);
+    transform: scale(1);
+  }
+}
+
+@keyframes fade-blur-main-in {
+  from {
+    transform: scale(1.2);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+/* 优化的滑入动画 */
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translate3d(30px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* 优化的缩放动画 */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 优化的旋转动画 */
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 优化的脉冲动画 */
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* 动画类 */
+.fade-in {
+  animation: fadeIn var(--animation-duration-normal) var(--animation-easing-out) forwards;
+}
+
+.fade-in-up {
+  animation: fadeInUp var(--animation-duration-normal) var(--animation-easing-out) forwards;
+}
+
+.fade-in-down {
+  animation: fadeInDown var(--animation-duration-normal) var(--animation-easing-out) forwards;
+}
+
+.slide-in-right {
+  animation: slideInRight var(--animation-duration-normal) var(--animation-easing-out) forwards;
+}
+
+.scale-in {
+  animation: scaleIn var(--animation-duration-normal) var(--animation-easing-out) forwards;
+}
+
+.rotate {
+  animation: rotate 1s linear infinite;
+}
+
+.pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* 优化的过渡类 */
+.transition {
+  transition: all var(--animation-duration-normal) var(--animation-easing);
+}
+
+.transition-transform {
+  transition: transform var(--animation-duration-normal) var(--animation-easing);
+}
+
+.transition-opacity {
+  transition: opacity var(--animation-duration-normal) var(--animation-easing);
+}
+
+/* 悬停效果优化 */
+.hover-lift {
+  transition: transform var(--animation-duration-fast) var(--animation-easing-out);
+}
+
+.hover-lift:hover {
+  transform: translateY(-3px);
+}
+
+.hover-scale {
+  transition: transform var(--animation-duration-fast) var(--animation-easing-out);
+}
+
+.hover-scale:hover {
+  transform: scale(1.03);
+}
+
+.hover-glow {
+  transition: box-shadow var(--animation-duration-normal) var(--animation-easing);
+}
+
+.hover-glow:hover {
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* 加载动画优化 */
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top: 3px solid white;
+  border-radius: 50%;
+  animation: rotate 1s linear infinite;
+}
+
+/* 页面过渡动画 */
+.page-enter-active,
+.page-leave-active {
+  transition: opacity var(--animation-duration-normal) var(--animation-easing);
+}
+
+.page-enter-from,
+.page-leave-to {
+  opacity: 0;
+}
+
+/* 列表项过渡动画优化 */
+.list-enter-active,
+.list-leave-active {
+  transition: all var(--animation-duration-normal) var(--animation-easing);
+}
+
+.list-enter-from,
+.list-leave-to {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+.list-move {
+  transition: transform var(--animation-duration-normal) var(--animation-easing);
+}
+
+/* 模态框动画优化 */
+.modal-enter-active,
+.modal-leave-active {
+  transition: all var(--animation-duration-normal) var(--animation-easing);
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+  transform: scale(0.9);
+}
+
+/* 抽屉动画优化 */
+.drawer-enter-active,
+.drawer-leave-active {
+  transition: transform var(--animation-duration-normal) var(--animation-easing);
+}
+
+.drawer-enter-from,
+.drawer-leave-to {
+  transform: translateX(100%);
+}
+
+/* 高性能滚动动画 */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity var(--animation-duration-normal) var(--animation-easing-out),
+              transform var(--animation-duration-normal) var(--animation-easing-out);
+}
+
+.scroll-reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 优化的按钮动画 */
+.button-optimized {
+  position: relative;
+  overflow: hidden;
+  transition: all var(--animation-duration-fast) var(--animation-easing-out);
+}
+
+.button-optimized::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  transform: translate(-50%, -50%);
+  transition: width var(--animation-duration-normal) var(--animation-easing-out),
+              height var(--animation-duration-normal) var(--animation-easing-out);
+}
+
+.button-optimized:active::after {
+  width: 300px;
+  height: 300px;
+}
+
+/* 卡片悬停效果优化 */
+.card-optimized {
+  transition: transform var(--animation-duration-normal) var(--animation-easing-out),
+              box-shadow var(--animation-duration-normal) var(--animation-easing-out);
+}
+
+.card-optimized:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* ==================== 响应式布局 ==================== */
+@media (max-width: 1200px) {
+  .container {
+    padding: 0 2vw;
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --animation-duration-fast: 0.1s;
+    --animation-duration-normal: 0.2s;
+    --animation-duration-slow: 0.3s;
+  }
+}
+
+@media (max-width: 720px) {
+  .xs-hidden {
+    display: none;
+  }
+}

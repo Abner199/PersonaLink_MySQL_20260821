@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+backups/
+*.sql.gz
+frontend/node_modules/
+backend/node_modules/
+
+# Build output
+frontend/dist/
+
+# Logs and local settings
+*.log
+.env
+.env.*
+!.env.example
+
+# 不把旧 JSON 快照、数据库备份和真实上传内容提交到版本库。
+backend/db.json
+uploads/

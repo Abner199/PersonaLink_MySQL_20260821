@@ -1,0 +1,24 @@
+{
+  "name": "personal-introduction-app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@vicons/fa": "^0.13.0",
+    "@vicons/utils": "^0.1.4",
+    "axios": "^1.4.0",
+    "pinia": "^2.1.6",
+    "vue": "^3.3.4",
+    "vue-router": "^4.2.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.8",
+    "sass": "^1.93.2",
+    "vite": "^8.2.2"
+  }
+}
