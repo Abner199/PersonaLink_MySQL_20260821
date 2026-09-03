@@ -113,11 +113,15 @@ rm /tmp/nodesource_setup.sh
 
 `node -v` 应为 `v22.x`；不要继续使用低于项目要求的版本。
 
-## 6. 从 GitHub 下载项目
+## 6. 从 GitHub 公开仓库下载项目
+
+PersonaLink 仓库已经设置为 Public。克隆公开仓库不需要 GitHub 账号、密码、Token 或 SSH Key。直接执行下面的命令：
 
 ```bash
+# 创建项目目录并交给当前 SSH 用户管理
 sudo mkdir -p /srv/personalink
 sudo chown "$USER":"$USER" /srv/personalink
+
 # 只克隆用于生产的 main 分支
 git clone --branch main --single-branch \
   https://github.com/Abner199/PersonaLink_MySQL_20260821.git \
@@ -129,7 +133,22 @@ git log -1 --oneline
 git status --short
 ```
 
-应看到当前分支为 `main`，`git status --short` 应没有输出。公开仓库克隆不需要 GitHub 密码。若以后仓库改为私有，推荐在服务器配置只读 Deploy Key；不要把个人访问令牌写进脚本或仓库。
+应看到当前分支为 `main`，`git status --short` 应没有输出。
+
+正常情况下，`git clone` 不会出现用户名和密码提示。如果仍然出现 `Username for 'https://github.com'`，按 `Ctrl+C` 取消，不要输入 GitHub 密码。然后执行下面的匿名克隆命令，它会临时忽略服务器中可能残留的错误凭据：
+
+```bash
+# 上一次克隆失败可能留下空目录；rmdir 只删除空目录，不会删除已有文件
+sudo rmdir /srv/personalink 2>/dev/null || true
+
+# 禁用本次命令的凭据读取和交互提示，以匿名方式克隆公开仓库
+GIT_TERMINAL_PROMPT=0 git -c credential.helper= clone \
+  --branch main --single-branch \
+  https://github.com/Abner199/PersonaLink_MySQL_20260821.git \
+  /srv/personalink
+```
+
+如果这条命令仍失败，错误原因通常是服务器无法访问 GitHub，而不是账号权限；可先运行 `curl -I https://github.com` 检查网络。
 
 ## 7. 创建 MySQL 数据库和应用账号
 
@@ -397,10 +416,13 @@ cd /srv/personalink/backend && npm run db:verify
 # 1. 先生成一份数据库备份，成功后再继续
 sudo /usr/local/sbin/backup-personalink
 
-# 2. 确认工作区干净，然后只允许快进更新
+# 2. 确认工作区干净，然后从公开仓库只允许快进更新
 cd /srv/personalink
 git status --short
-git pull --ff-only origin main
+
+# 临时忽略可能残留的 GitHub 凭据，公开仓库可匿名拉取
+GIT_TERMINAL_PROMPT=0 git -c credential.helper= \
+  pull --ff-only origin main
 
 # 3. 更新后端依赖并检查数据库
 cd backend
@@ -652,6 +674,23 @@ rm /tmp/personalink-db.json
 导入后登录管理员、修改密码，并核对班级人数和头像。
 
 ## 20. 常见故障
+
+### Git clone 要求用户名、密码，或者返回 403
+
+当前仓库是公开仓库，部署时不需要登录 GitHub。看到用户名提示时按 `Ctrl+C` 取消，然后执行：
+
+```bash
+# 如果失败操作留下的是空目录，先安全移除空目录
+sudo rmdir /srv/personalink 2>/dev/null || true
+
+# 忽略错误缓存凭据，以匿名方式重新克隆
+GIT_TERMINAL_PROMPT=0 git -c credential.helper= clone \
+  --branch main --single-branch \
+  https://github.com/Abner199/PersonaLink_MySQL_20260821.git \
+  /srv/personalink
+```
+
+不要在服务器中填写 GitHub 登录密码，也不要把 Token 拼进仓库 URL。
 
 ### 浏览器显示 502 Bad Gateway
 
