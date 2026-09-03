@@ -8,6 +8,8 @@
 
 命令分为两类：标有“Windows PowerShell”的命令在自己的 Windows 电脑执行，其余 `bash` 命令均在 SSH 登录后的 Ubuntu 服务器执行。命令中的 `你的公网IP`、`你的域名` 和密码都是占位内容，必须替换为真实值，不要原样输入。
 
+为避免复制时漏掉反斜杠、空格或续行，本教程中需要直接运行的命令均为“一行一条”。每个代码块可以整块粘贴执行；不要把终端提示符（例如 `root@server:~#`）一起复制。
+
 ## 1. 先理解最终结构
 
 ```text
@@ -123,9 +125,7 @@ sudo mkdir -p /srv/personalink
 sudo chown "$USER":"$USER" /srv/personalink
 
 # 只克隆用于生产的 main 分支
-git clone --branch main --single-branch \
-  https://github.com/Abner199/PersonaLink_MySQL_20260821.git \
-  /srv/personalink
+git clone --branch main --single-branch https://github.com/Abner199/PersonaLink_MySQL_20260821.git /srv/personalink
 
 cd /srv/personalink
 git branch --show-current
@@ -142,10 +142,7 @@ git status --short
 sudo rmdir /srv/personalink 2>/dev/null || true
 
 # 禁用本次命令的凭据读取和交互提示，以匿名方式克隆公开仓库
-GIT_TERMINAL_PROMPT=0 git -c credential.helper= clone \
-  --branch main --single-branch \
-  https://github.com/Abner199/PersonaLink_MySQL_20260821.git \
-  /srv/personalink
+GIT_TERMINAL_PROMPT=0 git -c credential.helper= clone --branch main --single-branch https://github.com/Abner199/PersonaLink_MySQL_20260821.git /srv/personalink
 ```
 
 如果这条命令仍失败，错误原因通常是服务器无法访问 GitHub，而不是账号权限；可先运行 `curl -I https://github.com` 检查网络。
@@ -231,23 +228,26 @@ mysql -h 127.0.0.1 -u personalink -p -e "SHOW TABLES FROM personalink;"
 
 MySQL 会询问第 7 步的数据库密码。输出中应出现 `classes`、`users`、`synonym_groups` 和 `standard_hobbies`。
 
+`npm ci --omit=dev` 输出 `added ... packages` 表示依赖安装完成。出现 `packages are looking for funding`、npm 新版本通知或依赖漏洞摘要，不代表安装失败。上线时不要直接运行 `npm audit fix --force`，它可能升级到不兼容版本；先用 `npm audit --omit=dev` 查看生产依赖报告，再在开发环境评估和测试升级。
+
 ## 9. 全新项目创建第一个管理员
 
-仅当这是全新空库时执行。密码采用隐藏输入，不会显示在屏幕上：
+仅当这是全新空库时执行。刚建完表时，数据库中的班级数和用户数都是 `0`；此时提前运行 `npm run db:verify` 会显示 `adminExists: false`、`adminPasswordHashed: false` 并以失败状态退出。这说明数据库连接和表结构正常，但初始化尚未完成，不需要重新建库。
+
+下面采用隐藏输入，管理员密码不会显示在屏幕上，也不会作为明文写入 shell 历史。请设置至少 8 位的强密码：
 
 ```bash
 cd /srv/personalink/backend
-read -s -p '请输入初始管理员密码（至少8位）: ' ADMIN_INITIAL_PASSWORD
+read -rsp '请输入初始管理员密码（至少 8 位）: ' PERSONALINK_ADMIN_PASSWORD
 echo
-export ADMIN_INITIAL_PASSWORD
-export ADMIN_EMAIL='admin@system.com'
-export ADMIN_NAME='系统管理员'
-npm run db:create-admin
-unset ADMIN_INITIAL_PASSWORD ADMIN_EMAIL ADMIN_NAME
+ADMIN_EMAIL='admin@system.com' ADMIN_NAME='系统管理员' ADMIN_INITIAL_PASSWORD="$PERSONALINK_ADMIN_PASSWORD" npm run db:create-admin
+unset PERSONALINK_ADMIN_PASSWORD
 npm run db:verify
 ```
 
-脚本发现同邮箱已存在时会停止，不会覆盖已有账号或密码。首次登录后，应在“用户管理 → 修改管理员密码”再次设置长期密码。
+管理员邮箱必须使用 `admin@system.com`，当前校验脚本和部分后台保护逻辑依赖该固定邮箱。脚本发现同邮箱已存在时会停止，不会覆盖已有账号或密码。
+
+校验成功时应满足：`users` 至少为 `1`、`orphanUsers` 为 `0`、`adminExists` 和 `adminPasswordHashed` 均为 `true`。全新站点的 `classes: 0` 和 `synonymGroups: 0` 是正常结果。首次登录后，应在“用户管理 → 修改管理员密码”设置长期强密码。
 
 如果是从旧版 `db.json` 迁移，不执行本节，改看第 19 节。
 
@@ -421,8 +421,7 @@ cd /srv/personalink
 git status --short
 
 # 临时忽略可能残留的 GitHub 凭据，公开仓库可匿名拉取
-GIT_TERMINAL_PROMPT=0 git -c credential.helper= \
-  pull --ff-only origin main
+GIT_TERMINAL_PROMPT=0 git -c credential.helper= pull --ff-only origin main
 
 # 3. 更新后端依赖并检查数据库
 cd backend
@@ -454,11 +453,7 @@ Ubuntu 的 MySQL 本机管理员默认通过系统身份验证，所以可用 `s
 sudo install -d -m 700 /var/backups/personalink
 
 # pipefail 保证 mysqldump 或 gzip 任一失败时整条命令失败
-sudo bash -c 'set -o pipefail; umask 077; \
-  mysqldump \
-  --single-transaction --routines --triggers --hex-blob \
-  --no-tablespaces --default-character-set=utf8mb4 personalink \
-  | gzip > "/var/backups/personalink/personalink-$(date +%F-%H%M%S).sql.gz"'
+sudo bash -c 'set -o pipefail; umask 077; mysqldump --single-transaction --routines --triggers --hex-blob --no-tablespaces --default-character-set=utf8mb4 personalink | gzip > "/var/backups/personalink/personalink-$(date +%F-%H%M%S).sql.gz"'
 
 # 确认文件存在且不是 0 字节，并计算完整性校验值
 sudo ls -lh /var/backups/personalink
@@ -482,9 +477,7 @@ set -Eeuo pipefail
 BACKUP_DIR=/var/backups/personalink
 install -d -m 700 "$BACKUP_DIR"
 
-mysqldump --single-transaction --routines --triggers --hex-blob \
-  --no-tablespaces --default-character-set=utf8mb4 personalink \
-  | gzip > "$BACKUP_DIR/personalink-$(date +%F-%H%M%S).sql.gz"
+mysqldump --single-transaction --routines --triggers --hex-blob --no-tablespaces --default-character-set=utf8mb4 personalink | gzip > "$BACKUP_DIR/personalink-$(date +%F-%H%M%S).sql.gz"
 
 # 删除服务器本地超过 30 天的自动备份
 find "$BACKUP_DIR" -type f -name 'personalink-*.sql.gz' -mtime +30 -delete
@@ -568,10 +561,7 @@ sudo systemctl is-active personalink
 
 ```bash
 # 使用 pipefail，避免数据库导出失败后仍留下看似正常的 gzip 文件
-sudo bash -c 'set -o pipefail; umask 077; \
-  mysqldump --single-transaction --routines --triggers --hex-blob \
-  --no-tablespaces --default-character-set=utf8mb4 personalink \
-  | gzip > /var/backups/personalink/FINAL-personalink.sql.gz'
+sudo bash -c 'set -o pipefail; umask 077; mysqldump --single-transaction --routines --triggers --hex-blob --no-tablespaces --default-character-set=utf8mb4 personalink | gzip > /var/backups/personalink/FINAL-personalink.sql.gz'
 
 sudo sha256sum /var/backups/personalink/FINAL-personalink.sql.gz
 ```
@@ -612,8 +602,7 @@ sudo systemctl stop personalink
 
 ```bash
 # 删除新服务器上的现有测试数据并重建空库；数据库账号授权仍会保留
-sudo mysql -e "DROP DATABASE IF EXISTS personalink; \
-  CREATE DATABASE personalink CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
+sudo mysql -e "DROP DATABASE IF EXISTS personalink; CREATE DATABASE personalink CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
 
 # 解压和导入任一步骤失败时都返回错误
 set -o pipefail
@@ -684,10 +673,7 @@ rm /tmp/personalink-db.json
 sudo rmdir /srv/personalink 2>/dev/null || true
 
 # 忽略错误缓存凭据，以匿名方式重新克隆
-GIT_TERMINAL_PROMPT=0 git -c credential.helper= clone \
-  --branch main --single-branch \
-  https://github.com/Abner199/PersonaLink_MySQL_20260821.git \
-  /srv/personalink
+GIT_TERMINAL_PROMPT=0 git -c credential.helper= clone --branch main --single-branch https://github.com/Abner199/PersonaLink_MySQL_20260821.git /srv/personalink
 ```
 
 不要在服务器中填写 GitHub 登录密码，也不要把 Token 拼进仓库 URL。
