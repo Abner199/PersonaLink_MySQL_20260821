@@ -14,6 +14,6 @@ frontend/dist/
 .env.*
 !.env.example
 
-# 不把旧 JSON 快照、数据库备份和真实上传内容提交到版本库。
-backend/db.json
+# backend/db.json 是本教学项目刻意维护的模拟数据快照，会随代码发布。
+# 真实用户导出、数据库备份和真实上传内容仍不得提交到版本库。
 uploads/

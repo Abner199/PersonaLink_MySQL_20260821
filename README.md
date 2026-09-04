@@ -10,7 +10,7 @@ Express 后端（backend）  处理请求和权限
 MySQL                    保存班级、账号、资料和头像
 ```
 
-GitHub 保存代码，不保存线上 MySQL 数据。换服务器必须同时迁移代码版本和数据库备份。
+GitHub 保存代码和用于教学测试的 `backend/db.json` 模拟数据快照，不保存线上 MySQL 实时数据。换服务器必须同时迁移代码版本和数据库备份。
 
 ## 文档入口
 
@@ -45,10 +45,10 @@ npm run db:schema
 
 ### 3. 准备初始数据
 
-二选一：
+二选一；“新服务器”不等于“全新空站点”：
 
-- 全新空库：设置 `ADMIN_EMAIL`、`ADMIN_NAME`、`ADMIN_INITIAL_PASSWORD` 后运行 `npm run db:create-admin`。
-- 从旧版升级：安全地准备未纳入 Git 的 `backend/db.json`，运行 `npm run db:migrate-json`。该命令会清空目标表，只能用于空库或测试库。
+- 教学演示站：先运行 `npm run db:inspect-json` 核验仓库自带的模拟数据，再设置 `ADMIN_INITIAL_PASSWORD` 并运行 `npm run db:migrate-json`。
+- 真正的全新空站点：设置 `ADMIN_EMAIL=admin@system.com`、`ADMIN_NAME`、`ADMIN_INITIAL_PASSWORD` 后运行 `npm run db:create-admin`。
 
 完成后执行：
 
@@ -95,4 +95,4 @@ docs/                     操作文档和测试记录
 Lecture/                  教学课程
 ```
 
-`backend/db.json` 只是旧版数据导入源，系统运行时不会读取，也不会推送到 GitHub。
+`backend/db.json` 是本仓库刻意公开的教学模拟数据，只在执行迁移命令时读取。不要用真实用户快照覆盖它；真实数据和 SQL 备份不得推送到 GitHub。

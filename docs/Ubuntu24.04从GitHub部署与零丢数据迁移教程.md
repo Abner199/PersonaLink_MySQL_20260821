@@ -23,7 +23,7 @@ Nginx
                     MySQL 127.0.0.1:3306
 ```
 
-GitHub 只保存代码，不保存服务器上的 `.env` 和实时 MySQL 数据。换服务器时必须同时迁移“同一个 Git 版本”和“最终 MySQL 备份”。当前用户上传头像在 MySQL `users.avatar` 中，会随 SQL 备份迁移；默认图片在代码的 `frontend/public/images` 中。
+GitHub 保存代码和仓库内明确标注的 `backend/db.json` 教学模拟数据，但不保存服务器上的 `.env` 和实时 MySQL 数据。模拟 JSON 只用于首次导入，网站运行时的班级、学生、资料和头像全部来自 MySQL。换服务器时必须同时迁移“同一个 Git 版本”和“最终 MySQL 备份”。当前用户上传头像在 MySQL `users.avatar` 中，会随 SQL 备份迁移；默认图片在代码的 `frontend/public/images` 中。
 
 ## 2. 准备清单
 
@@ -230,11 +230,34 @@ MySQL 会询问第 7 步的数据库密码。输出中应出现 `classes`、`use
 
 `npm ci --omit=dev` 输出 `added ... packages` 表示依赖安装完成。出现 `packages are looking for funding`、npm 新版本通知或依赖漏洞摘要，不代表安装失败。上线时不要直接运行 `npm audit fix --force`，它可能升级到不兼容版本；先用 `npm audit --omit=dev` 查看生产依赖报告，再在开发环境评估和测试升级。
 
-## 9. 全新项目创建第一个管理员
+## 9. 选择初始数据：演示站或真正空站点
 
-仅当这是全新空库时执行。刚建完表时，数据库中的班级数和用户数都是 `0`；此时提前运行 `npm run db:verify` 会显示 `adminExists: false`、`adminPasswordHashed: false` 并以失败状态退出。这说明数据库连接和表结构正常，但初始化尚未完成，不需要重新建库。
+这里必须二选一。“刚购买的新服务器”不等于“没有历史数据的全新站点”。如果希望部署后看到仓库原有的模拟班级和学生，执行 9.1；只有确定不需要任何演示数据时才执行 9.2。不要先创建空管理员再误以为演示数据会自动出现。
 
-下面采用隐藏输入，管理员密码不会显示在屏幕上，也不会作为明文写入 shell 历史。请设置至少 8 位的强密码：
+### 9.1 教学演示站：把模拟数据导入 MySQL
+
+先只读核验仓库自带的 `backend/db.json`，该操作不会连接或修改 MySQL：
+
+```bash
+cd /srv/personalink/backend
+npm run db:inspect-json
+```
+
+当前演示快照应显示 `classes: 3`、`users: 43`、`orphanUsers: 0`、`duplicateEmails: 0`、`passwordsPresent: true` 和 `valid: true`。确认无误后设置管理员新密码并导入：
+
+```bash
+read -rsp '请输入初始管理员密码（至少 8 位）: ' PERSONALINK_ADMIN_PASSWORD
+echo
+ADMIN_INITIAL_PASSWORD="$PERSONALINK_ADMIN_PASSWORD" npm run db:migrate-json
+unset PERSONALINK_ADMIN_PASSWORD
+npm run db:verify
+```
+
+`db:migrate-json` 会在一个事务中清空目标业务表，再把模拟班级、账号、资料、头像、同义词和标准爱好写入 MySQL。它不是把网站改回 JSON 存储；导入后网站仍然只使用 MySQL。校验结果应为 `classes: 3`、`users: 43`、`synonymGroups: 9`、`orphanUsers: 0`、`adminExists: true` 和 `adminPasswordHashed: true`。
+
+### 9.2 真正空站点：只创建第一个管理员
+
+仅当确定不需要演示班级和学生时执行。刚建完表时提前运行 `npm run db:verify`，会显示 `adminExists: false`、`adminPasswordHashed: false` 并以失败状态退出。这说明数据库连接和表结构正常，但初始化尚未完成，不需要重新建库。
 
 ```bash
 cd /srv/personalink/backend
@@ -248,8 +271,6 @@ npm run db:verify
 管理员邮箱必须使用 `admin@system.com`，当前校验脚本和部分后台保护逻辑依赖该固定邮箱。脚本发现同邮箱已存在时会停止，不会覆盖已有账号或密码。
 
 校验成功时应满足：`users` 至少为 `1`、`orphanUsers` 为 `0`、`adminExists` 和 `adminPasswordHashed` 均为 `true`。全新站点的 `classes: 0` 和 `synonymGroups: 0` 是正常结果。首次登录后，应在“用户管理 → 修改管理员密码”设置长期强密码。
-
-如果是从旧版 `db.json` 迁移，不执行本节，改看第 19 节。
 
 ## 10. 构建 Vue 前端
 
@@ -444,7 +465,7 @@ curl http://127.0.0.1:3003/health
 
 ## 16. 每日 MySQL 备份
 
-GitHub 只保存代码，不保存线上 MySQL 数据。用户、班级、资料和上传头像都在数据库中，必须单独备份。
+GitHub 中的模拟 JSON 只是固定的首次导入快照，不会随网站操作自动更新。线上新增或修改的用户、班级、资料和头像都只在 MySQL 中，因此仍然必须单独备份数据库。
 
 Ubuntu 的 MySQL 本机管理员默认通过系统身份验证，所以可用 `sudo mysqldump` 备份，不需要把 root 密码写入脚本。先创建仅 root 可访问的目录并手工备份一次：
 
@@ -639,28 +660,50 @@ nslookup 你的域名
 
 回滚过程中同样只能有一个数据库接受写入。
 
-## 19. 从旧版 `db.json` 首次迁入 MySQL
+## 19. 已上线空站补导演示数据，或导入其他 JSON
 
-`backend/db.json` 含用户资料，不进入 GitHub。先使用 SCP 单独传到新服务器：
+如果已经按空站点完成部署，后来才发现需要仓库中的模拟班级和学生，可按本节补导。导入会替换当前 MySQL 业务表，所以先停后端并备份当前数据库：
+
+```bash
+sudo systemctl stop personalink
+sudo install -d -m 700 /var/backups/personalink
+sudo bash -c 'set -o pipefail; umask 077; mysqldump --single-transaction --routines --triggers --hex-blob --no-tablespaces --default-character-set=utf8mb4 personalink | gzip > "/var/backups/personalink/before-demo-import-$(date +%F-%H%M%S).sql.gz"'
+cd /srv/personalink
+GIT_TERMINAL_PROMPT=0 git -c credential.helper= pull --ff-only origin main
+cd /srv/personalink/backend
+npm ci --omit=dev
+npm run db:inspect-json
+read -rsp '请为演示管理员设置新密码（至少 8 位）: ' PERSONALINK_ADMIN_PASSWORD
+echo
+ADMIN_INITIAL_PASSWORD="$PERSONALINK_ADMIN_PASSWORD" npm run db:migrate-json
+unset PERSONALINK_ADMIN_PASSWORD
+npm run db:verify
+sudo systemctl start personalink
+curl -fsS http://127.0.0.1:3003/health && echo
+```
+
+核对 `classes: 3`、`users: 43` 和健康检查成功后，再刷新网页。无需重新构建前端，因为班级和学生来自 MySQL API，不在前端构建文件中。
+
+如果导入的是仓库以外的其他 JSON，先使用 SCP 单独传到服务器。下面命令在自己的 Windows PowerShell 执行：
 
 ```powershell
 scp .\backend\db.json ubuntu@服务器IP:/tmp/personalink-db.json
 ```
 
-在服务器导入前，确认目标是新库或测试库。该命令会清空目标库的业务表再导入，禁止对正在使用的生产库随意执行：
+然后在服务器先核验、再导入；同样必须事先停服和备份：
 
 ```bash
 cd /srv/personalink/backend
-read -s -p '请输入旧管理员的初始密码: ' ADMIN_INITIAL_PASSWORD
+JSON_SOURCE=/tmp/personalink-db.json npm run db:inspect-json
+read -rsp '请为管理员设置新密码（至少 8 位）: ' PERSONALINK_ADMIN_PASSWORD
 echo
-export ADMIN_INITIAL_PASSWORD
-JSON_SOURCE=/tmp/personalink-db.json npm run db:migrate-json
-unset ADMIN_INITIAL_PASSWORD
+JSON_SOURCE=/tmp/personalink-db.json ADMIN_INITIAL_PASSWORD="$PERSONALINK_ADMIN_PASSWORD" npm run db:migrate-json
+unset PERSONALINK_ADMIN_PASSWORD
 npm run db:verify
-rm /tmp/personalink-db.json
+sudo rm /tmp/personalink-db.json
 ```
 
-导入后登录管理员、修改密码，并核对班级人数和头像。
+导入后登录管理员、修改密码，并核对班级人数和头像。仓库自带的 `backend/db.json` 只能保存明确确认过的模拟数据；真实用户快照、`.env` 和 SQL 备份不得提交 GitHub。
 
 ## 20. 常见故障
 
@@ -703,6 +746,10 @@ try_files $uri $uri/ /index.html;
 ### MySQL 提示 Access denied
 
 检查 `.env` 的数据库用户名和密码，并在 MySQL 中确认账号为 `'personalink'@'localhost'`。不要为解决问题把 3306 开到公网。
+
+### 部署成功但班级和学生都是空的
+
+前端不内置班级和学生，它只显示 MySQL API 返回的数据。先执行 `cd /srv/personalink/backend && npm run db:verify`；如果只有一个管理员且 `classes` 为 `0`，说明此前选择了真正空站点。需要演示数据时按第 19 节停服、备份并补导，不需要修改或重新构建前端。
 
 ### Git pull 提示本地文件冲突
 
