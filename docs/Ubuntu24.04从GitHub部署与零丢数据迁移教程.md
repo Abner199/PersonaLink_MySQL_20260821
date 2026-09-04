@@ -8,7 +8,7 @@
 
 按本项目推荐的演示流程完成后，网页会显示 3 个班级、42 名学生及照片墙；学生当前使用随前端发布的本地默认头像。要得到这些内容，必须执行第 9.1 节把仓库模拟快照导入 MySQL，仅建表或仅创建管理员不会自动产生班级和学生。
 
-命令分为两类：标有“Windows PowerShell”的命令在自己的 Windows 电脑执行，其余 `bash` 命令均在 SSH 登录后的 Ubuntu 服务器执行。命令中的 `你的公网IP`、`你的域名` 和密码都是占位内容，必须替换为真实值，不要原样输入。
+命令分为两类：标有“Windows PowerShell”的命令在自己的 Windows 电脑执行，其余 `bash` 命令均在 SSH 登录后的 Ubuntu 服务器执行。命令中的 `你的公网IP` 和 `你的域名` 是占位内容，必须替换为真实值，不要原样输入。本教程的 MySQL 应用账号密码固定为 `123456`，可直接复制。
 
 为避免复制时漏掉反斜杠、空格或续行，本教程中需要直接运行的命令均为“一行一条”。每个代码块可以整块粘贴执行；不要把终端提示符（例如 `root@server:~#`）一起复制。
 
@@ -151,30 +151,19 @@ GIT_TERMINAL_PROMPT=0 git -c credential.helper= clone --branch main --single-bra
 
 ## 7. 创建 MySQL 数据库和应用账号
 
-生成一条 48 位十六进制、只用于 MySQL 的随机密码，并保存在密码管理器中。十六进制密码不含引号等特殊字符，粘贴到 SQL 和 `.env` 时更不容易出错：
-
-```bash
-openssl rand -hex 24
-```
-
 进入 MySQL 管理终端：
 
 ```bash
 sudo mysql
 ```
 
-逐行执行下面 SQL。把 `替换为刚才生成的强密码` 换成真实密码，但保留单引号；密码中若含单引号，请重新生成一条：
+逐行执行下面 SQL。数据库名为 `personalink`，应用账号为 `personalink`，密码固定为 `123456`，不需要再替换：
 
 ```sql
-CREATE DATABASE IF NOT EXISTS personalink
-  CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
-
-CREATE USER 'personalink'@'localhost'
-  IDENTIFIED BY '替换为刚才生成的强密码';
-
-GRANT SELECT, INSERT, UPDATE, DELETE
-  ON personalink.* TO 'personalink'@'localhost';
-
+CREATE DATABASE IF NOT EXISTS personalink CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+CREATE USER IF NOT EXISTS 'personalink'@'localhost' IDENTIFIED BY '123456';
+ALTER USER 'personalink'@'localhost' IDENTIFIED BY '123456';
+GRANT SELECT, INSERT, UPDATE, DELETE ON personalink.* TO 'personalink'@'localhost';
 FLUSH PRIVILEGES;
 EXIT;
 ```
@@ -198,7 +187,7 @@ sudo mysql -e "SHOW TABLES FROM personalink;"
 sudo nano /srv/personalink/backend/.env
 ```
 
-填入以下内容，把数据库密码换成第 7 步的真实值：
+填入以下内容；数据库密码已经填写为 `123456`，可直接复制：
 
 ```dotenv
 NODE_ENV=production
@@ -207,7 +196,7 @@ DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_NAME=personalink
 DB_USER=personalink
-DB_PASSWORD=替换为数据库强密码
+DB_PASSWORD=123456
 DB_CONNECTION_LIMIT=10
 ```
 
@@ -224,11 +213,11 @@ sudo chmod 640 /srv/personalink/backend/.env
 cd /srv/personalink/backend
 npm ci --omit=dev
 
-# 使用与 .env 相同的连接方式测试应用账号；按提示输入数据库密码
+# 使用与 .env 相同的连接方式测试应用账号；出现提示时输入 123456
 mysql -h 127.0.0.1 -u personalink -p -e "SHOW TABLES FROM personalink;"
 ```
 
-MySQL 会询问第 7 步的数据库密码。输出中应出现 `classes`、`users`、`synonym_groups` 和 `standard_hobbies`。
+MySQL 询问密码时输入 `123456`。输出中应出现 `classes`、`users`、`synonym_groups` 和 `standard_hobbies`。
 
 `npm ci --omit=dev` 输出 `added ... packages` 表示依赖安装完成。出现 `packages are looking for funding`、npm 新版本通知或依赖漏洞摘要，不代表安装失败。上线时不要直接运行 `npm audit fix --force`，它可能升级到不兼容版本；先用 `npm audit --omit=dev` 查看生产依赖报告，再在开发环境评估和测试升级。
 
@@ -488,7 +477,7 @@ sudo crontab -e
 sudo journalctl -t personalink-backup --since '7 days ago' --no-pager
 ```
 
-服务器本地备份无法防御云主机磁盘损坏或账号被删除。至少把最近一组 `.sql.gz`、`.sha256`、`.git-commit`、`.inventory.json` 自动同步到对象存储或另一台机器；在尚未配置自动异地同步时，每次重要修改后手工下载一组。`.env` 中的数据库密码另存密码管理器，不要与公开仓库或 SQL 备份放在一起。
+服务器本地备份无法防御云主机磁盘损坏或账号被删除。至少把最近一组 `.sql.gz`、`.sha256`、`.git-commit`、`.inventory.json` 自动同步到对象存储或另一台机器；在尚未配置自动异地同步时，每次重要修改后手工下载一组。本教程的演示数据库密码为 `123456`；以后接入真实数据时应换成独立强密码，并另存密码管理器。
 
 备份文件存在不等于一定能恢复。建议每月选择一组备份恢复到独立测试库，先运行 `sha256sum -c` 和 `gzip -t`，再核对 `npm run db:verify` 的全部计数、管理员登录、头像、照片墙和搜索。
 
