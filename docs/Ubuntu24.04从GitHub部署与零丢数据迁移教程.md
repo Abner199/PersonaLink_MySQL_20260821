@@ -289,36 +289,10 @@ test -f dist/index.html && echo '前端构建成功'
 
 ## 11. 用 systemd 常驻运行后端
 
-创建服务文件：
+项目自带经过核对的 service 文件，直接安装，避免手工粘贴遗漏：
 
 ```bash
-sudo nano /etc/systemd/system/personalink.service
-```
-
-粘贴：
-
-```ini
-[Unit]
-Description=PersonaLink Express API
-After=network.target mysql.service
-Requires=mysql.service
-
-[Service]
-Type=simple
-User=www-data
-Group=www-data
-WorkingDirectory=/srv/personalink/backend
-EnvironmentFile=/srv/personalink/backend/.env
-ExecStart=/usr/bin/node /srv/personalink/backend/server.js
-Restart=on-failure
-RestartSec=5
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectHome=true
-ProtectSystem=full
-
-[Install]
-WantedBy=multi-user.target
+sudo install -m 644 /srv/personalink/deploy/personalink.service /etc/systemd/system/personalink.service
 ```
 
 启动并设置开机启动：
@@ -455,6 +429,9 @@ git status --short
 
 # 临时忽略可能残留的 GitHub 凭据，公开仓库可匿名拉取
 GIT_TERMINAL_PROMPT=0 git -c credential.helper= pull --ff-only origin main
+sudo install -m 700 /srv/personalink/scripts/backup-personalink.sh /usr/local/sbin/backup-personalink
+sudo install -m 644 /srv/personalink/deploy/personalink.service /etc/systemd/system/personalink.service
+sudo systemctl daemon-reload
 
 # 3. 更新后端依赖并检查数据库
 cd backend
@@ -479,53 +456,18 @@ curl http://127.0.0.1:3003/health
 
 GitHub 中的模拟 JSON 只是固定的首次导入快照，不会随网站操作自动更新。线上新增或修改的用户、班级、资料和头像都只在 MySQL 中，因此仍然必须单独备份数据库。
 
-Ubuntu 的 MySQL 本机管理员默认通过系统身份验证，所以可用 `sudo mysqldump` 备份，不需要把 root 密码写入脚本。先创建仅 root 可访问的目录并手工备份一次：
+Ubuntu 的 MySQL 本机管理员默认通过系统身份验证，所以可用 `sudo mysqldump` 备份，不需要把 root 密码写入脚本。项目自带 `scripts/backup-personalink.sh`，它会先写临时文件，完成后检查文件非空和 gzip 完整性，再原子改名，并生成 SHA-256、Git commit 和数据库清单文件。这样中途失败的半成品不会伪装成有效备份。
+
+安装脚本并手工备份一次：
 
 ```bash
-# 创建权限为 700 的备份目录
-sudo install -d -m 700 /var/backups/personalink
-
-# pipefail 保证 mysqldump 或 gzip 任一失败时整条命令失败
-sudo bash -c 'set -o pipefail; umask 077; mysqldump --single-transaction --routines --triggers --hex-blob --no-tablespaces --default-character-set=utf8mb4 personalink | gzip > "/var/backups/personalink/personalink-$(date +%F-%H%M%S).sql.gz"'
-
-# 确认文件存在且不是 0 字节，并计算完整性校验值
-sudo ls -lh /var/backups/personalink
-sudo sha256sum /var/backups/personalink/*.sql.gz
-```
-
-`--single-transaction` 可在 InnoDB 表继续提供服务时获得一致备份；`--no-tablespaces` 避免不同 MySQL 权限配置导致备份失败。备份成功后，至少再复制一份到另一台机器或对象存储。不要提交 SQL 到 GitHub。
-
-接着创建自动备份脚本：
-
-```bash
-sudo nano /usr/local/sbin/backup-personalink
-```
-
-粘贴以下内容：
-
-```bash
-#!/usr/bin/env bash
-set -Eeuo pipefail
-
-BACKUP_DIR=/var/backups/personalink
-install -d -m 700 "$BACKUP_DIR"
-
-mysqldump --single-transaction --routines --triggers --hex-blob --no-tablespaces --default-character-set=utf8mb4 personalink | gzip > "$BACKUP_DIR/personalink-$(date +%F-%H%M%S).sql.gz"
-
-# 删除服务器本地超过 30 天的自动备份
-find "$BACKUP_DIR" -type f -name 'personalink-*.sql.gz' -mtime +30 -delete
-```
-
-保存后设置权限并手工测试：
-
-```bash
-# 只有 root 可以读写和执行脚本
-sudo chmod 700 /usr/local/sbin/backup-personalink
-
-# 必须先手工执行成功，再配置定时任务
+sudo install -m 700 /srv/personalink/scripts/backup-personalink.sh /usr/local/sbin/backup-personalink
 sudo /usr/local/sbin/backup-personalink
 sudo ls -lh /var/backups/personalink
+sudo bash -c 'cd /var/backups/personalink; checksum=$(ls -1t personalink-*.sql.gz.sha256 | head -n 1); sha256sum -c "$checksum"; gzip -t "${checksum%.sha256}"; cat "${checksum%.sha256}.git-commit"'
 ```
+
+输出的 `.sql.gz` 是数据库备份，`.sha256` 同时校验 SQL、代码版本和数据清单，`.git-commit` 记录生成备份时的网站代码版本，`.inventory.json` 记录各表、学生和头像字节数。四者必须作为一组保存。`--single-transaction` 可在 InnoDB 表继续提供服务时获得一致备份；`--no-tablespaces` 避免不同 MySQL 权限配置导致备份失败。
 
 最后使用 root 定时任务每天 03:30 备份：
 
@@ -546,7 +488,9 @@ sudo crontab -e
 sudo journalctl -t personalink-backup --since '7 days ago' --no-pager
 ```
 
-备份文件存在不等于一定能恢复。建议每月选择一份备份恢复到测试库，核对用户数、班级数和管理员登录。
+服务器本地备份无法防御云主机磁盘损坏或账号被删除。至少把最近一组 `.sql.gz`、`.sha256`、`.git-commit`、`.inventory.json` 自动同步到对象存储或另一台机器；在尚未配置自动异地同步时，每次重要修改后手工下载一组。`.env` 中的数据库密码另存密码管理器，不要与公开仓库或 SQL 备份放在一起。
+
+备份文件存在不等于一定能恢复。建议每月选择一组备份恢复到独立测试库，先运行 `sha256sum -c` 和 `gzip -t`，再核对 `npm run db:verify` 的全部计数、管理员登录、头像、照片墙和搜索。
 
 ## 17. 服务器迁移前的核心原则
 
@@ -593,13 +537,13 @@ sudo systemctl is-active personalink
 仍在旧服务器：
 
 ```bash
-# 使用 pipefail，避免数据库导出失败后仍留下看似正常的 gzip 文件
-sudo bash -c 'set -o pipefail; umask 077; mysqldump --single-transaction --routines --triggers --hex-blob --no-tablespaces --default-character-set=utf8mb4 personalink | gzip > /var/backups/personalink/FINAL-personalink.sql.gz'
-
-sudo sha256sum /var/backups/personalink/FINAL-personalink.sql.gz
+sudo install -m 700 /srv/personalink/scripts/backup-personalink.sh /usr/local/sbin/backup-personalink
+sudo BACKUP_LABEL=FINAL-personalink RETENTION_DAYS=36500 /usr/local/sbin/backup-personalink
+FINAL_ARCHIVE=$(sudo find /var/backups/personalink -maxdepth 1 -type f -name 'FINAL-personalink-*.sql.gz' -printf '%T@ %p\n' | sort -nr | head -n 1 | cut -d' ' -f2-)
+sudo bash -c 'cd "$(dirname "$1")"; sha256sum -c "$(basename "$1").sha256"; gzip -t "$(basename "$1")"; cat "$(basename "$1").git-commit"' bash "$FINAL_ARCHIVE"
 ```
 
-保存输出的 SHA-256，并记录旧库校验：
+保存输出的 SHA-256 和 Git commit，并记录旧库完整校验结果：
 
 ```bash
 cd /srv/personalink/backend
@@ -608,20 +552,39 @@ npm run db:verify
 
 ### 18.4 把备份复制到新服务器
 
-最容易理解的方式是在自己的电脑中转。Windows PowerShell：
-
-```powershell
-scp ubuntu@旧服务器IP:/var/backups/personalink/FINAL-personalink.sql.gz .
-scp .\FINAL-personalink.sql.gz ubuntu@新服务器IP:/tmp/
-```
-
-在新服务器校验 SHA-256：
+`/var/backups/personalink` 权限为 `700`，普通 SSH 用户不能直接 SCP。先在旧服务器创建只供当前 SSH 用户读取的临时传输目录：
 
 ```bash
-sha256sum /tmp/FINAL-personalink.sql.gz
+install -d -m 700 /tmp/personalink-transfer
+sudo find /tmp/personalink-transfer -mindepth 1 -maxdepth 1 -type f -delete
+sudo cp "$FINAL_ARCHIVE" "$FINAL_ARCHIVE.sha256" "$FINAL_ARCHIVE.git-commit" "$FINAL_ARCHIVE.inventory.json" /tmp/personalink-transfer/
+sudo chown -R "$USER":"$USER" /tmp/personalink-transfer
+ls -lh /tmp/personalink-transfer
 ```
 
-必须与旧服务器完全一致，不一致就重新传输。
+最容易理解的方式是在自己的电脑中转。下面两条命令在 Windows PowerShell 执行：
+
+```powershell
+scp -r ubuntu@旧服务器IP:/tmp/personalink-transfer .
+scp -r .\personalink-transfer ubuntu@新服务器IP:/tmp/
+```
+
+在新服务器校验 SHA-256、gzip 和代码版本：
+
+```bash
+cd /tmp/personalink-transfer
+test "$(find . -maxdepth 1 -type f -name '*.sql.gz' | wc -l)" -eq 1
+TRANSFER_ARCHIVE=$(find "$PWD" -maxdepth 1 -type f -name '*.sql.gz' -print -quit)
+sha256sum -c "$(basename "$TRANSFER_ARCHIVE").sha256"
+gzip -t "$TRANSFER_ARCHIVE"
+cat "$TRANSFER_ARCHIVE.git-commit"
+cat "$TRANSFER_ARCHIVE.inventory.json"
+cd /srv/personalink
+EXPECTED_COMMIT=$(cat "$TRANSFER_ARCHIVE.git-commit")
+test "$(git rev-parse HEAD)" = "$EXPECTED_COMMIT" && echo '代码版本一致'
+```
+
+`sha256sum` 必须显示 `OK`，`gzip -t` 必须无错误，新服务器 `git rev-parse HEAD` 必须与 `.git-commit` 内容完全一致。任一项不满足都不要删除新库或开始恢复。
 
 ### 18.5 恢复到新数据库
 
@@ -639,19 +602,22 @@ sudo mysql -e "DROP DATABASE IF EXISTS personalink; CREATE DATABASE personalink 
 
 # 解压和导入任一步骤失败时都返回错误
 set -o pipefail
-gunzip -c /tmp/FINAL-personalink.sql.gz | sudo mysql personalink
+TRANSFER_ARCHIVE=$(find /tmp/personalink-transfer -maxdepth 1 -type f -name '*.sql.gz' -print -quit)
+gunzip -c "$TRANSFER_ARCHIVE" | sudo mysql --binary-mode=1 personalink
 ```
 
 启动并校验：
 
 ```bash
 sudo systemctl start personalink
+sleep 2
 cd /srv/personalink/backend
-npm run db:verify
-curl http://127.0.0.1:3003/health
+npm run db:verify --silent | tee /tmp/personalink-transfer/restored.inventory.json
+diff -u "$TRANSFER_ARCHIVE.inventory.json" /tmp/personalink-transfer/restored.inventory.json
+curl -fsS http://127.0.0.1:3003/health && echo
 ```
 
-将新库的班级数、用户数、同义词数与第 18.3 节旧库输出逐项比较。再通过新服务器 IP 临时验收登录、头像、名单、CSV、照片墙和搜索。
+将新库输出中的班级、用户、学生、同义词、标准爱好、已存头像数和头像总字节数与第 18.3 节旧库输出逐项比较。再通过新服务器 IP 临时验收登录、头像、名单、CSV、照片墙和搜索。全部通过后才允许切换域名。
 
 ### 18.6 切换域名
 
@@ -662,6 +628,13 @@ nslookup 你的域名
 ```
 
 解析到新 IP 后访问 HTTPS 并完成第 14 节清单。旧服务器保持后端停止，不要马上销毁。
+
+迁移全部验收通过后，删除旧、新服务器 `/tmp/personalink-transfer` 中的临时传输副本；正式备份仍保留在受保护的备份位置和异机存储中：
+
+```bash
+sudo find /tmp/personalink-transfer -mindepth 1 -maxdepth 1 -type f -delete
+sudo rmdir /tmp/personalink-transfer
+```
 
 ### 18.7 迁移失败时回滚
 

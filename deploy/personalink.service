@@ -1,0 +1,21 @@
+[Unit]
+Description=PersonaLink Express API
+After=network.target mysql.service
+Requires=mysql.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/srv/personalink/backend
+EnvironmentFile=/srv/personalink/backend/.env
+ExecStart=/usr/bin/node /srv/personalink/backend/server.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

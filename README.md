@@ -90,7 +90,8 @@ frontend/                 Vue 页面
 backend/                  Express 与 MySQL API
 backend/database/         MySQL 表结构
 backend/scripts/          建表、导入、管理员初始化和校验
-scripts/                  Windows MySQL 备份与恢复
+scripts/                  Windows 与 Ubuntu MySQL 备份恢复脚本
+deploy/                   Ubuntu systemd 服务文件
 docs/                     操作文档和测试记录
 Lecture/                  教学课程
 ```
