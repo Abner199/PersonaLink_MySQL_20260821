@@ -6,6 +6,8 @@
 
 本文假定服务器是刚安装完成的 Ubuntu 24.04 LTS，除系统本身外什么都没有。从第一次 SSH 登录开始，依次完成软件安装、下载代码、配置 MySQL、构建前端、启动后端、配置 Nginx，以及可选的域名和 HTTPS。
 
+按本项目推荐的演示流程完成后，网页会显示 3 个班级、42 名学生及照片墙；学生当前使用随前端发布的本地默认头像。要得到这些内容，必须执行第 9.1 节把仓库模拟快照导入 MySQL，仅建表或仅创建管理员不会自动产生班级和学生。
+
 命令分为两类：标有“Windows PowerShell”的命令在自己的 Windows 电脑执行，其余 `bash` 命令均在 SSH 登录后的 Ubuntu 服务器执行。命令中的 `你的公网IP`、`你的域名` 和密码都是占位内容，必须替换为真实值，不要原样输入。
 
 为避免复制时漏掉反斜杠、空格或续行，本教程中需要直接运行的命令均为“一行一条”。每个代码块可以整块粘贴执行；不要把终端提示符（例如 `root@server:~#`）一起复制。
@@ -234,7 +236,7 @@ MySQL 会询问第 7 步的数据库密码。输出中应出现 `classes`、`use
 
 这里必须二选一。“刚购买的新服务器”不等于“没有历史数据的全新站点”。如果希望部署后看到仓库原有的模拟班级和学生，执行 9.1；只有确定不需要任何演示数据时才执行 9.2。不要先创建空管理员再误以为演示数据会自动出现。
 
-### 9.1 教学演示站：把模拟数据导入 MySQL
+### 9.1 教学演示站：把模拟数据导入 MySQL（本项目推荐）
 
 先只读核验仓库自带的 `backend/db.json`，该操作不会连接或修改 MySQL：
 
@@ -243,7 +245,7 @@ cd /srv/personalink/backend
 npm run db:inspect-json
 ```
 
-当前演示快照应显示 `classes: 3`、`users: 43`、`orphanUsers: 0`、`duplicateEmails: 0`、`passwordsPresent: true` 和 `valid: true`。确认无误后设置管理员新密码并导入：
+当前演示快照应显示 `classes: 3`、`users: 43`、`students: 42`、`studentsWithCustomAvatar: 0`、`studentsUsingDefaultAvatar: 42`、`orphanUsers: 0`、`duplicateEmails: 0`、`passwordsPresent: true` 和 `valid: true`。确认无误后设置管理员新密码并导入：
 
 ```bash
 read -rsp '请输入初始管理员密码（至少 8 位）: ' PERSONALINK_ADMIN_PASSWORD
@@ -254,6 +256,8 @@ npm run db:verify
 ```
 
 `db:migrate-json` 会在一个事务中清空目标业务表，再把模拟班级、账号、资料、头像、同义词和标准爱好写入 MySQL。它不是把网站改回 JSON 存储；导入后网站仍然只使用 MySQL。校验结果应为 `classes: 3`、`users: 43`、`synonymGroups: 9`、`orphanUsers: 0`、`adminExists: true` 和 `adminPasswordHashed: true`。
+
+演示数据中的 42 名学生没有自定义照片：19 个旧网络占位地址会被后端过滤，另外 23 个头像为空。照片墙仍会显示全部 42 名学生，并按账号稳定分配 `frontend/public/images/avatars` 中随代码发布的本地默认头像；以后用户上传的新头像会保存到 MySQL。
 
 ### 9.2 真正空站点：只创建第一个管理员
 
@@ -322,11 +326,19 @@ WantedBy=multi-user.target
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now personalink
+sleep 2
 sudo systemctl status personalink --no-pager
-curl http://127.0.0.1:3003/health
+curl -fsS http://127.0.0.1:3003/health && echo
 ```
 
-正确结果包含 `"status":"ok"` 和 `"database":"mysql"`。
+正确结果包含 `"status":"ok"` 和 `"database":"mysql"`。等待 2 秒是为了避免 systemd 刚启动 Node、端口尚未监听时立即检查而误报连接失败。
+
+如果第 9 步选择了教学演示数据，再核对后端 API 确实返回 3 个班级和 42 名学生：
+
+```bash
+curl -fsS http://127.0.0.1:3003/api/classes | node -e "let input='';process.stdin.on('data',chunk=>input+=chunk).on('end',()=>{const rows=JSON.parse(input);console.log('API 班级数:',rows.length);if(rows.length!==3)process.exit(1)})"
+curl -fsS http://127.0.0.1:3003/api/photowall | node -e "let input='';process.stdin.on('data',chunk=>input+=chunk).on('end',()=>{const result=JSON.parse(input);console.log('照片墙学生数:',result.data?.length);if(!result.success||result.data?.length!==42)process.exit(1)})"
+```
 
 ## 12. 配置 Nginx，通过公网 IP 访问
 
@@ -334,13 +346,13 @@ curl http://127.0.0.1:3003/health
 
 ```bash
 sudo cp /srv/personalink/nginx.conf /etc/nginx/sites-available/personalink
-sudo ln -s /etc/nginx/sites-available/personalink /etc/nginx/sites-enabled/personalink
-sudo unlink /etc/nginx/sites-enabled/default
+sudo ln -sfn /etc/nginx/sites-available/personalink /etc/nginx/sites-enabled/personalink
+if [ -L /etc/nginx/sites-enabled/default ]; then sudo unlink /etc/nginx/sites-enabled/default; fi
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-如果 `ln` 提示文件已存在，说明此前启用过，跳过该命令即可。现在用自己电脑浏览器访问：
+现在用自己电脑浏览器访问：
 
 ```text
 http://你的公网IP
@@ -679,10 +691,13 @@ ADMIN_INITIAL_PASSWORD="$PERSONALINK_ADMIN_PASSWORD" npm run db:migrate-json
 unset PERSONALINK_ADMIN_PASSWORD
 npm run db:verify
 sudo systemctl start personalink
+sleep 2
 curl -fsS http://127.0.0.1:3003/health && echo
+curl -fsS http://127.0.0.1:3003/api/classes | node -e "let input='';process.stdin.on('data',chunk=>input+=chunk).on('end',()=>{const rows=JSON.parse(input);console.log('API 班级数:',rows.length);if(rows.length!==3)process.exit(1)})"
+curl -fsS http://127.0.0.1:3003/api/photowall | node -e "let input='';process.stdin.on('data',chunk=>input+=chunk).on('end',()=>{const result=JSON.parse(input);console.log('照片墙学生数:',result.data?.length);if(!result.success||result.data?.length!==42)process.exit(1)})"
 ```
 
-核对 `classes: 3`、`users: 43` 和健康检查成功后，再刷新网页。无需重新构建前端，因为班级和学生来自 MySQL API，不在前端构建文件中。
+核对 `classes: 3`、`users: 43` 和健康检查成功后，再刷新网页。班级和学生来自 MySQL API；照片墙应显示 42 名学生及本地默认头像。正常代码更新流程已经构建过前端时无需仅为数据导入再次构建。
 
 如果导入的是仓库以外的其他 JSON，先使用 SCP 单独传到服务器。下面命令在自己的 Windows PowerShell 执行：
 
@@ -750,6 +765,10 @@ try_files $uri $uri/ /index.html;
 ### 部署成功但班级和学生都是空的
 
 前端不内置班级和学生，它只显示 MySQL API 返回的数据。先执行 `cd /srv/personalink/backend && npm run db:verify`；如果只有一个管理员且 `classes` 为 `0`，说明此前选择了真正空站点。需要演示数据时按第 19 节停服、备份并补导，不需要修改或重新构建前端。
+
+### 照片墙有学生，但显示的是默认头像
+
+这是当前教学模拟数据的预期结果。42 名学生没有自定义照片，前端会使用仓库自带的本地默认头像；这不表示头像文件丢失。用户之后上传头像时，图片会写入 MySQL 的 `users.avatar` 并替换默认头像。
 
 ### Git pull 提示本地文件冲突
 

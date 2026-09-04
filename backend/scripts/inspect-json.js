@@ -20,7 +20,9 @@ const run = () => {
   const userIds = users.map((item) => item.id).filter(Boolean);
   const emails = users.map((item) => String(item.email || '').trim().toLowerCase()).filter(Boolean);
   const admins = users.filter((item) => String(item.email || '').trim().toLowerCase() === 'admin@system.com');
+  const students = users.filter((item) => item.role !== 'admin' && String(item.email || '').trim().toLowerCase() !== 'admin@system.com');
   const orphanUsers = users.filter((item) => item.classId && !classIdSet.has(item.classId));
+  const hasDisplayableAvatar = (item) => typeof item.avatar === 'string' && item.avatar.length > 0 && !item.avatar.includes('picsum.photos');
   const errors = [];
 
   if (!users.length) errors.push('没有用户数据');
@@ -37,10 +39,12 @@ const run = () => {
   const report = {
     classes: classes.length,
     users: users.length,
+    students: students.length,
     synonymGroups: groups.length,
     standardHobbies: hobbies.length,
     usersWithClass: users.filter((item) => item.classId).length,
-    usersWithAvatar: users.filter((item) => typeof item.avatar === 'string' && item.avatar.length > 0).length,
+    studentsWithCustomAvatar: students.filter(hasDisplayableAvatar).length,
+    studentsUsingDefaultAvatar: students.filter((item) => !hasDisplayableAvatar(item)).length,
     orphanUsers: orphanUsers.length,
     duplicateEmails: duplicateCount(emails),
     passwordsPresent: users.every((item) => typeof item.password === 'string' && item.password.length > 0),
