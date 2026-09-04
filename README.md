@@ -2,6 +2,14 @@
 
 一个 Vue 3 + Express + MySQL 的班级信息分享项目，包含注册登录、个人资料、班级、照片墙、搜索、同义词和管理员功能。
 
+当前稳定版本：[`v1.0.0`](https://github.com/Abner199/PersonaLink_MySQL_20260821/releases/tag/v1.0.0)。页面右下角和后端版本接口均可核对实际部署版本。
+
+只下载稳定版：
+
+```bash
+git clone --branch v1.0.0 --single-branch https://github.com/Abner199/PersonaLink_MySQL_20260821.git
+```
+
 ## 小白先理解三部分
 
 ```text
@@ -18,6 +26,8 @@ GitHub 保存代码和用于教学测试的 `backend/db.json` 模拟数据快照
 - 页面使用和管理员操作：[软件使用说明书](./docs/软件使用说明书.md)
 - 修改代码、旧数据导入和发布：[开发维护指南](./docs/开发维护指南.md)
 - 全部文档导航：[文档中心](./docs/README.md)
+- v1.0.0 功能、数据基线、环境和升级说明：[版本发布说明](./docs/releases/v1.0.0.md)
+- 历次版本变化：[更新日志](./CHANGELOG.md)
 - 系统学习课程：[Lecture](./Lecture/README.md)
 
 ## 本地第一次启动
@@ -31,7 +41,7 @@ Copy-Item backend/.env.example backend/.env
 notepad backend/.env
 ```
 
-填写真实的 `DB_HOST`、`DB_PORT`、`DB_NAME`、`DB_USER` 和 `DB_PASSWORD`。`.env` 不能上传 GitHub。
+填写真实的 `DB_HOST`、`DB_PORT`、`DB_NAME` 和 `DB_USER`。教学演示可直接使用示例中的 `DB_PASSWORD=123456`；接入真实数据时应更换。`.env` 不能上传 GitHub。
 
 ### 2. 建表
 
@@ -73,7 +83,7 @@ npm ci
 npm run dev
 ```
 
-打开 `http://localhost:3000`；后端健康检查是 `http://localhost:3003/health`。
+打开 `http://localhost:3000`；后端健康检查是 `http://localhost:3003/health`，版本信息接口是 `http://localhost:3003/api/version`。
 
 ## 管理员功能
 

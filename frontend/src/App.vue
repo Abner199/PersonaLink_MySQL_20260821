@@ -11,6 +11,9 @@
         <router-view />
       </div>
     </div>
+    <a class="version-badge" :href="releaseUrl" target="_blank" rel="noopener noreferrer" title="查看版本说明">
+      PersonaLink v{{ appVersion }}
+    </a>
     <PerformanceMonitor />
   </div>
 </template>
@@ -19,6 +22,10 @@
 import { onMounted, ref } from 'vue'
 import PerformanceMonitor from './components/PerformanceMonitor.vue'
 import Background from './components/Background.vue'
+import packageInfo from '../package.json'
+
+const appVersion = packageInfo.version
+const releaseUrl = `https://github.com/Abner199/PersonaLink_MySQL_20260821/releases/tag/v${appVersion}`
 
 // 背景图片列表
 const backgroundImages = ref([
@@ -144,5 +151,27 @@ window.setCustomBackground = (url) => {
   padding: 0 20px;
   z-index: 1;
   flex: 1;
+}
+
+.version-badge {
+  position: fixed;
+  right: 12px;
+  bottom: 10px;
+  z-index: 20;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.82);
+  background: rgba(20, 25, 35, 0.55);
+  font-size: 12px;
+  line-height: 1.2;
+  text-decoration: none;
+  backdrop-filter: blur(6px);
+}
+
+.version-badge:hover,
+.version-badge:focus-visible {
+  color: #fff;
+  background: rgba(20, 25, 35, 0.78);
 }
 </style>

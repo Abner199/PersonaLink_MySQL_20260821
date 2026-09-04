@@ -6,6 +6,7 @@ const classRoutes = require('./routes/classes');
 const photoWallRoutes = require('./routes/photowall');
 const synonymsRoutes = require('./routes/synonyms_new');
 const errorHandler = require('./middleware/errorHandler');
+const { version } = require('./package.json');
 
 const app = express();
 const PORT = Number(process.env.PORT || 3003);
@@ -24,16 +25,27 @@ app.use('/api/synonyms', synonymsRoutes);
 
 // 测试路由
 app.get('/', (req, res) => {
-  res.json({ message: 'PersonaLink API is running!' });
+  res.json({ message: 'PersonaLink API is running!', version });
+});
+
+// 供页面、运维检查和问题反馈确认当前部署的代码版本。
+app.get('/api/version', (_req, res) => {
+  res.json({
+    name: 'PersonaLink MySQL',
+    version,
+    release: `v${version}`,
+    apiVersion: 'v1',
+    database: 'mysql'
+  });
 });
 
 // 供 Docker、负载均衡器和迁移后验收使用的健康检查。
 app.get('/health', async (_req, res) => {
   try {
     await connectDB();
-    res.json({ status: 'ok', database: 'mysql' });
+    res.json({ status: 'ok', database: 'mysql', version });
   } catch (error) {
-    res.status(503).json({ status: 'unavailable', database: 'mysql' });
+    res.status(503).json({ status: 'unavailable', database: 'mysql', version });
   }
 });
 
@@ -53,4 +65,8 @@ const start = async () => {
   }
 };
 
-start();
+if (require.main === module) {
+  start();
+}
+
+module.exports = { app, start };
