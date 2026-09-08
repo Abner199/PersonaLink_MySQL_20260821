@@ -1,6 +1,6 @@
 {
   "name": "vue-user-sharing-backend",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Backend server for Vue user information sharing",
   "main": "server.js",
   "scripts": {
@@ -10,7 +10,9 @@
     "db:create-admin": "node scripts/create-admin.js",
     "db:inspect-json": "node scripts/inspect-json.js",
     "db:migrate-json": "node scripts/migrate-json-to-mysql.js",
-    "db:verify": "node scripts/verify-mysql.js"
+    "db:verify": "node scripts/verify-mysql.js",
+    "test:class-roster": "node scripts/test-class-roster.js",
+    "test:class-roster-mysql": "node scripts/test-class-roster-mysql.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

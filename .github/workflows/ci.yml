@@ -70,6 +70,10 @@ jobs:
       - name: 检查全部后端 JavaScript 语法
         run: node scripts/check-backend-syntax.js
 
+      - name: 验证 46 人班级名单使用轻量响应
+        working-directory: backend
+        run: npm run test:class-roster
+
       - name: 检查 Ubuntu 备份、发布和只读巡检脚本语法
         run: bash -n scripts/backup-personalink.sh scripts/deploy-release.sh scripts/check-production.sh
 
@@ -88,6 +92,10 @@ jobs:
       - name: 核验 CI 临时数据库完整性
         working-directory: backend
         run: npm run db:verify
+
+      - name: 使用 MySQL 验证班级名单轻量查询
+        working-directory: backend
+        run: npm run test:class-roster-mysql
 
       - name: 安装前端依赖
         working-directory: frontend

@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 要部署的正式标签，例如 v1.0.4
+        description: 要部署的正式标签，例如 v1.0.5
         required: true
         type: string
 

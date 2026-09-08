@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# 使用方式：sudo /usr/local/sbin/deploy-personalink-release v1.0.4
+# 使用方式：sudo /usr/local/sbin/deploy-personalink-release v1.0.5
 # 脚本只更新代码和依赖，不执行建表、模拟数据导入或任何删表操作。
 
 RELEASE_TAG="${1:-}"
@@ -14,7 +14,7 @@ fail() {
 }
 
 [[ "$(id -u)" -eq 0 ]] || fail "请使用 sudo 执行。"
-[[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "版本必须形如 v1.0.4。"
+[[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "版本必须形如 v1.0.5。"
 [[ -d "$PROJECT_DIR/.git" ]] || fail "项目目录不是 Git 仓库：$PROJECT_DIR"
 [[ -x "$BACKUP_COMMAND" ]] || fail "备份命令不存在或不可执行：$BACKUP_COMMAND"
 

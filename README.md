@@ -2,12 +2,12 @@
 
 一个 Vue 3 + Express + MySQL 的班级信息分享项目，包含注册登录、个人资料、班级、照片墙、搜索、同义词和管理员功能。
 
-当前稳定版本：[`v1.0.4`](https://github.com/Abner199/PersonaLink_MySQL_20260821/releases/tag/v1.0.4)。页面右下角和后端版本接口均可核对实际部署版本。
+当前稳定版本：[`v1.0.5`](https://github.com/Abner199/PersonaLink_MySQL_20260821/releases/tag/v1.0.5)。页面右下角和后端版本接口均可核对实际部署版本。
 
 只下载稳定版：
 
 ```bash
-git clone --branch v1.0.4 --single-branch https://github.com/Abner199/PersonaLink_MySQL_20260821.git
+git clone --branch v1.0.5 --single-branch https://github.com/Abner199/PersonaLink_MySQL_20260821.git
 ```
 
 ## 在线部署状态
@@ -17,6 +17,7 @@ git clone --branch v1.0.4 --single-branch https://github.com/Abner199/PersonaLin
 - 线上已于 2026-09-08 升级到 `v1.0.2`，核验 7 个班级、88 名学生和 50 份已存头像保持一致；照片墙列表实测为 37,509 字节、0.022 秒。
 - 线上随后升级到 `v1.0.3`，Ubuntu gzip 冲突修复生效，Nginx、后端和公网 HTTP 健康检查全部通过；HTTPS 按站点决定暂缓配置。
 - `v1.0.4` 新增一条命令完成服务、Nginx、版本、MySQL 清单及照片墙响应的只读巡检。
+- `v1.0.5` 修复大班级查看名单超时以及请求失败被误显示为“暂无学生”的问题。
 
 ## 小白先理解三部分
 
@@ -35,7 +36,8 @@ GitHub 保存代码和用于教学测试的 `backend/db.json` 模拟数据快照
 - 页面使用和管理员操作：[软件使用说明书](./docs/软件使用说明书.md)
 - 修改代码、旧数据导入和发布：[开发维护指南](./docs/开发维护指南.md)
 - 全部文档导航：[文档中心](./docs/README.md)
-- v1.0.4 一键生产巡检与现场教程总结：[版本发布说明](./docs/releases/v1.0.4.md)
+- v1.0.5 大班级名单轻量加载修复：[版本发布说明](./docs/releases/v1.0.5.md)
+- v1.0.4 一键生产巡检与现场教程总结：[历史版本说明](./docs/releases/v1.0.4.md)
 - v1.0.3 Ubuntu gzip 兼容修复：[历史版本说明](./docs/releases/v1.0.3.md)
 - v1.0.2 CI/CD 与数据安全发布说明：[历史版本说明](./docs/releases/v1.0.2.md)
 - v1.0.1 网络修复与服务器升级说明：[历史版本说明](./docs/releases/v1.0.1.md)

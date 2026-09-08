@@ -112,6 +112,10 @@
           <div class="modal-content large" @click.stop>
             <h3>{{ viewingClassName }}注册学员名单</h3>
             <div v-if="isLoadingStudents" class="loading">加载中...</div>
+            <div v-else-if="studentsLoadError" class="empty-state">
+              <p>{{ studentsLoadError }}</p>
+              <button @click="viewStudents(viewingStudents)" class="glass-button small">重新加载</button>
+            </div>
             <div v-else-if="students.length === 0" class="empty-state">该班级暂无学生</div>
             <template v-else>
               <div class="roster-actions">
@@ -169,6 +173,7 @@ const isCreating = ref(false)
 const isUpdating = ref(false)
 const successMessage = ref('')
 const errorMessage = ref('')
+const studentsLoadError = ref('')
 
 const newClass = ref({
   name: '',
@@ -253,13 +258,16 @@ const deleteClass = async (classId) => {
 const viewStudents = async (classId) => {
   viewingStudents.value = classId
   viewingClassName.value = classes.value.find(item => item.id === classId)?.name || '班级'
+  students.value = []
+  studentsLoadError.value = ''
+  errorMessage.value = ''
   isLoadingStudents.value = true
   
   try {
     const studentsData = await classStore.fetchClassStudents(classId)
     students.value = studentsData
   } catch (error) {
-    errorMessage.value = '获取学生列表失败'
+    studentsLoadError.value = error.message || '获取学生列表失败，请重新登录后重试'
     console.error('获取学生列表失败:', error)
   } finally {
     isLoadingStudents.value = false
@@ -270,6 +278,7 @@ const closeStudentsModal = () => {
   viewingStudents.value = null
   viewingClassName.value = ''
   students.value = []
+  studentsLoadError.value = ''
 }
 
 const formatDate = (value) => value ? new Date(value).toLocaleString('zh-CN') : '-'

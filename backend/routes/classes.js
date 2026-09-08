@@ -2,7 +2,8 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { pool } = require('../db');
 const adminAuth = require('../middleware/adminAuth');
-const { formatUserData, toISOString } = require('../utils/userUtils');
+const { toISOString } = require('../utils/userUtils');
+const { rosterStudentSelect, formatRosterStudent } = require('../utils/rosterUtils');
 
 const router = express.Router();
 
@@ -87,8 +88,8 @@ router.get('/:id/students', adminAuth, async (req, res) => {
   try {
     const [classes] = await pool.execute('SELECT id FROM classes WHERE id = ?', [req.params.id]);
     if (!classes[0]) return res.status(404).json({ message: '班级不存在' });
-    const [rows] = await pool.execute("SELECT id, username, name, email, avatar, role, class_id, profile, avatar_index, created_at, updated_at FROM users WHERE class_id = ? AND role <> 'admin' ORDER BY name, created_at", [req.params.id]);
-    res.json(rows.map(formatUserData));
+    const [rows] = await pool.execute(rosterStudentSelect, [req.params.id]);
+    res.json(rows.map(formatRosterStudent));
   } catch (error) { handleError(error, res); }
 });
 
