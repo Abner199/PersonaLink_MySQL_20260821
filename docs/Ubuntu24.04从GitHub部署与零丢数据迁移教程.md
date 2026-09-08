@@ -8,7 +8,7 @@
 
 按本项目推荐的演示流程完成后，网页会显示 3 个班级、42 名学生及照片墙；学生当前使用随前端发布的本地默认头像。要得到这些内容，必须执行第 9.1 节把仓库模拟快照导入 MySQL，仅建表或仅创建管理员不会自动产生班级和学生。
 
-当前稳定版本为 [`v1.0.1`](https://github.com/Abner199/PersonaLink_MySQL_20260821/releases/tag/v1.0.1)。需要长期复现完全相同的代码时应部署该标签；需要持续接收最新修改时使用 `main`。
+当前稳定版本为 [`v1.0.2`](https://github.com/Abner199/PersonaLink_MySQL_20260821/releases/tag/v1.0.2)。需要长期复现完全相同的代码时应部署该标签；需要持续接收最新修改时使用 `main`。
 
 命令分为两类：标有“Windows PowerShell”的命令在自己的 Windows 电脑执行，其余 `bash` 命令均在 SSH 登录后的 Ubuntu 服务器执行。命令中的 `你的公网IP` 和 `你的域名` 是占位内容，必须替换为真实值，不要原样输入。本教程的 MySQL 应用账号密码固定为 `123456`，可直接复制。
 
@@ -139,11 +139,11 @@ git status --short
 
 应看到当前分支为 `main`，`git status --short` 应没有输出。
 
-若本次要固定部署 `v1.0.1`，克隆完成后再执行以下两条命令。固定标签适合教学复现和问题溯源；此后不要在服务器直接修改代码：
+若本次要固定部署 `v1.0.2`，克隆完成后再执行以下两条命令。固定标签适合教学复现和问题溯源；此后不要在服务器直接修改代码：
 
 ```bash
 cd /srv/personalink
-git switch --detach v1.0.1
+git switch --detach v1.0.2
 ```
 
 正常情况下，`git clone` 不会出现用户名和密码提示。如果仍然出现 `Username for 'https://github.com'`，按 `Ctrl+C` 取消，不要输入 GitHub 密码。然后执行下面的匿名克隆命令，它会临时忽略服务器中可能残留的错误凭据：
@@ -304,7 +304,7 @@ curl -fsS http://127.0.0.1:3003/health && echo
 curl -fsS http://127.0.0.1:3003/api/version && echo
 ```
 
-健康检查的正确结果包含 `"status":"ok"`、`"database":"mysql"` 和 `"version":"1.0.1"`；版本接口应返回 `"release":"v1.0.1"`。等待 2 秒是为了避免 systemd 刚启动 Node、端口尚未监听时立即检查而误报连接失败。
+健康检查的正确结果包含 `"status":"ok"`、`"database":"mysql"` 和 `"version":"1.0.2"`；版本接口应返回 `"release":"v1.0.2"`。等待 2 秒是为了避免 systemd 刚启动 Node、端口尚未监听时立即检查而误报连接失败。
 
 如果第 9 步选择了教学演示数据，再核对后端 API 确实返回 3 个班级和 42 名学生：
 
@@ -397,7 +397,7 @@ https://你的域名/health
 逐项确认：
 
 - [ ] `https://你的域名/health` 或 `http://公网IP/health` 返回 `status: ok`。
-- [ ] `/api/version` 返回当前部署的版本；部署本稳定版时应为 `v1.0.1`。
+- [ ] `/api/version` 返回当前部署的版本；部署本稳定版时应为 `v1.0.2`。
 - [ ] 管理员能登录并修改自己的密码。
 - [ ] 管理员能创建班级和普通用户。
 - [ ] 普通用户能注册、登录、修改资料和头像。
@@ -417,9 +417,31 @@ cd /srv/personalink/backend && npm run db:verify
 
 ## 15. 日常更新代码
 
-先备份数据库，再更新。不要在服务器直接修改项目代码，否则 `git pull` 容易冲突。以下第一条命令来自第 16 节；必须先配置并测试备份脚本。
+生产服务器优先部署固定版本标签，不直接跟随可能继续变化的 `main`。项目从 `v1.0.2` 起提供统一发布脚本，自动完成备份、版本核对、依赖安装、前端构建、数据库清单比对、服务重启和健康检查。
 
-下面的 `git pull` 流程适用于跟随 `main` 的服务器。如果服务器固定在发布标签，应先阅读新版本发布说明，备份数据库，然后使用 `git fetch --tags origin` 和 `git switch --detach 新标签` 升级；不要移动或覆盖旧标签。
+### 15.1 推荐：部署固定发布标签
+
+第一次安装发布脚本时逐行执行。注释也可以一起复制到终端，不会被执行：
+
+```bash
+# 进入项目并确认工作区干净；git status --short 应没有输出。
+cd /srv/personalink
+git status --short
+
+# 获取标签并从固定版本提取发布脚本，不提前修改网站代码。
+git fetch --tags origin
+git show v1.0.2:scripts/deploy-release.sh | sudo tee /usr/local/sbin/deploy-personalink-release > /dev/null
+sudo chmod 700 /usr/local/sbin/deploy-personalink-release
+
+# 自动备份 MySQL、比对数据并部署固定版本。
+sudo /usr/local/sbin/deploy-personalink-release v1.0.2
+```
+
+成功时最后应显示 `发布成功：v1.0.2；MySQL 数据清单保持一致。`。以后升级只需先确认新标签的发布说明，再执行 `sudo /usr/local/sbin/deploy-personalink-release 新标签`。
+
+### 15.2 仅开发测试：跟随 main 手工更新
+
+下面流程只适合明确需要测试 `main` 最新代码的服务器。先备份数据库；不要在服务器直接修改项目代码，否则 `git pull` 会冲突。
 
 ```bash
 # 1. 先生成一份数据库备份，成功后再继续
@@ -455,6 +477,10 @@ curl http://127.0.0.1:3003/api/version
 ```
 
 `git status` 必须干净再拉取。`.env` 被 Git 忽略，不会被 `git pull` 覆盖。
+
+### 15.3 GitHub Actions CI/CD
+
+仓库已提供自动 CI 和需要人工触发、可设置审核人的生产 CD。首次配置 SSH 用户、GitHub Environment、Secrets 和完整故障处理步骤，请阅读 [CI/CD 发布与安全部署](./CI-CD发布与安全部署.md)。CI 中的模拟数据导入只发生在临时 MySQL，生产 CD 不执行模拟数据导入。
 
 ## 16. 每日 MySQL 备份
 

@@ -1,0 +1,64 @@
+name: CD - Deploy production release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 要部署的正式标签，例如 v1.0.2
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: personalink-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: 备份并部署固定版本
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: production
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+      PRODUCTION_URL: ${{ secrets.PRODUCTION_URL }}
+      PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+      PRODUCTION_SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}
+      PRODUCTION_KNOWN_HOSTS: ${{ secrets.PRODUCTION_KNOWN_HOSTS }}
+
+    steps:
+      - name: 获取用于校验的仓库代码
+        uses: actions/checkout@v4
+
+      - name: 校验输入格式和 GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY"
+
+      - name: 配置受信任的 SSH 连接
+        run: |
+          test -n "$PRODUCTION_HOST"
+          test -n "$PRODUCTION_URL"
+          test -n "$PRODUCTION_USER"
+          test -n "$PRODUCTION_SSH_PRIVATE_KEY"
+          test -n "$PRODUCTION_KNOWN_HOSTS"
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$PRODUCTION_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$PRODUCTION_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: 在服务器执行备份、数据比对和版本部署
+        run: ssh -o BatchMode=yes -o IdentitiesOnly=yes "$PRODUCTION_USER@$PRODUCTION_HOST" "sudo -n /usr/local/sbin/deploy-personalink-release '$RELEASE_TAG'"
+
+      - name: 从公网核对部署版本
+        run: |
+          base_url="${PRODUCTION_URL%/}"
+          version_json="$(curl -fsS --retry 3 --retry-delay 2 "$base_url/api/version")"
+          node -e "const value=JSON.parse(process.argv[1]);if(value.release!==process.argv[2])process.exit(1)" "$version_json" "$RELEASE_TAG"
+          echo "$version_json"

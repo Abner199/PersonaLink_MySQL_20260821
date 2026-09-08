@@ -2,6 +2,28 @@
 
 本项目采用[语义化版本](https://semver.org/lang/zh-CN/)：修复发布为补丁版本，兼容功能发布为次版本，不兼容变更发布为主版本。已经发布的 Git 标签永久保留，不移动、不覆盖。
 
+## [1.0.2] - 2026-09-08
+
+新增带数据保护的统一发布脚本和 GitHub Actions CI/CD，并把部署命令整理为带中文注释、每行可直接执行的形式。
+
+### 自动检查
+
+- CI 自动核对 7 处版本号和全部后端 JavaScript 语法。
+- CI 使用临时 MySQL 完成建表、模拟数据检查、导入和数据库完整性验证。
+- CI 使用 lockfile 安装依赖、构建前端并保留 14 天构建产物。
+
+### 安全部署
+
+- `deploy-release.sh` 只接受语义化版本标签，拒绝脏工作区和不存在的版本。
+- 部署前生成 MySQL 四件套备份，部署前后比对 11 项数据库清单。
+- CD 只允许手动部署已发布的 GitHub Release，并支持 production Environment 审核。
+- 同一时间只运行一个生产发布任务，不取消正在执行的备份或部署。
+
+### 文档
+
+- 新增 CI/CD、SSH 最小权限、Secrets、故障处理和安全边界说明。
+- Ubuntu 部署教程优先推荐固定标签和统一发布脚本，保留 `main` 手工更新作为开发测试方案。
+
 ## [1.0.1] - 2026-09-08
 
 修复低带宽或网络抖动时照片墙频繁显示“网络错误”的问题；数据库结构和数据不变。
@@ -56,5 +78,6 @@
 - 普通用户接口尚未全面实现 Session/JWT 权限隔离；承载真实公网用户前需进一步加固。
 - `123456` 仅用于当前教学演示配置；接入真实数据时应改为独立强密码。
 
-[1.0.0]: https://github.com/Abner199/PersonaLink_MySQL_20260821/releases/tag/v1.0.0
+[1.0.2]: https://github.com/Abner199/PersonaLink_MySQL_20260821/releases/tag/v1.0.2
 [1.0.1]: https://github.com/Abner199/PersonaLink_MySQL_20260821/releases/tag/v1.0.1
+[1.0.0]: https://github.com/Abner199/PersonaLink_MySQL_20260821/releases/tag/v1.0.0
