@@ -74,9 +74,11 @@ const { animateOnScroll } = useOptimizedAnimations()
 
 // 初始化数据
 onMounted(async () => {
-  await classStore.fetchClasses()
   selectedClassId.value = userStore.user?.classId || ''
-  await loadPhotoWall()
+  await Promise.allSettled([
+    classStore.fetchClasses(),
+    loadPhotoWall()
+  ])
   
   // 初始化动画
   nextTick(() => {
@@ -91,7 +93,11 @@ const isLoading = computed(() => isLoadingWall.value)
 const error = computed(() => wallError.value)
 const isAdmin = computed(() => userStore.user?.role === 'admin' || userStore.user?.isAdmin)
 const filteredUsers = computed(() => photoWallUsers.value)
-const currentClassName = computed(() => classStore.classes.find(item => item.id === userStore.user?.classId)?.name || '未分配班级')
+const currentClassName = computed(() => (
+  classStore.classes.find(item => item.id === userStore.user?.classId)?.name
+  || photoWallUsers.value[0]?.className
+  || '未分配班级'
+))
 const classOptions = computed(() => {
   const options = [{ value: '', label: '全部班级' }]
   classStore.classes.forEach(cls => {
@@ -122,8 +128,10 @@ const loadPhotoWall = async () => {
 }
 
 const refreshData = async () => {
-  await classStore.fetchClasses()
-  await loadPhotoWall()
+  await Promise.allSettled([
+    classStore.fetchClasses(),
+    loadPhotoWall()
+  ])
 }
 
 // 回退功能

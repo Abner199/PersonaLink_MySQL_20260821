@@ -6,7 +6,7 @@ import { API_BASE_URL } from '../../config/api.js'
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json'
   }
@@ -21,17 +21,30 @@ apiClient.interceptors.request.use(config => {
 // 成功时只返回后端 data，页面无需再写 response.data。
 apiClient.interceptors.response.use(
   response => response.data,
-  error => {
+  async error => {
     console.error('API 请求错误:', error)
 
+    const config = error.config
+    const isGetRequest = config?.method?.toLowerCase() === 'get'
+    const isTransientNetworkError = !error.response && Boolean(error.request)
+    if (isGetRequest && isTransientNetworkError && !config.__personalinkRetried) {
+      config.__personalinkRetried = true
+      await new Promise(resolve => setTimeout(resolve, 800))
+      return apiClient(config)
+    }
+
     let message = '请求失败'
-    if (error.response) {
+    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+      message = '网络响应较慢，请稍后重试'
+    } else if (error.response) {
       message = error.response.data?.message || `服务器错误 (${error.response.status})`
       if (error.response.status === 401 && sessionStorage.getItem('adminToken')) {
         sessionStorage.removeItem('adminToken')
       }
     } else if (error.request) {
-      message = '网络错误，请检查后端服务是否启动'
+      message = navigator.onLine
+        ? '暂时无法连接服务器，请稍后重试'
+        : '当前设备未连接网络，请检查网络设置'
     } else {
       message = error.message || '请求配置错误'
     }
