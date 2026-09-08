@@ -2,6 +2,17 @@
 
 本项目采用[语义化版本](https://semver.org/lang/zh-CN/)：修复发布为补丁版本，兼容功能发布为次版本，不兼容变更发布为主版本。已经发布的 Git 标签永久保留，不移动、不覆盖。
 
+## [1.0.4] - 2026-09-08
+
+把 v1.0.2 → v1.0.3 生产升级、照片墙排障、MySQL 数据保护和 gzip 冲突恢复过程整理为可复用流程。
+
+- 新增 `check-production.sh`，一条命令只读检查三个服务、Nginx、运行版本、MySQL 清单、本机与公网照片墙响应。
+- 发布脚本自动安装 `/usr/local/sbin/check-personalink`，方便后续巡检和故障反馈。
+- CI 自动检查备份、发布和巡检三个 Ubuntu 脚本的 shell 语法。
+- Ubuntu 教程新增真实现场案例，明确 HTTP 可正常使用而 HTTPS 可暂缓配置。
+- 软件说明与 CI/CD 文档统一给出一行一条、带注释且可直接复制的命令。
+- 无数据库结构或业务接口变更，不需要迁移现有数据。
+
 ## [1.0.3] - 2026-09-08
 
 修复 Ubuntu 默认 Nginx 已启用 gzip 时，发布脚本再次声明 `gzip on` 导致 `nginx -t` 报 duplicate 并在 `[8/9]` 停止的问题。
@@ -88,6 +99,7 @@
 - 普通用户接口尚未全面实现 Session/JWT 权限隔离；承载真实公网用户前需进一步加固。
 - `123456` 仅用于当前教学演示配置；接入真实数据时应改为独立强密码。
 
+[1.0.4]: https://github.com/Abner199/PersonaLink_MySQL_20260821/releases/tag/v1.0.4
 [1.0.3]: https://github.com/Abner199/PersonaLink_MySQL_20260821/releases/tag/v1.0.3
 [1.0.2]: https://github.com/Abner199/PersonaLink_MySQL_20260821/releases/tag/v1.0.2
 [1.0.1]: https://github.com/Abner199/PersonaLink_MySQL_20260821/releases/tag/v1.0.1

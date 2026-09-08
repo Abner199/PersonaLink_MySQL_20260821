@@ -26,14 +26,14 @@ git status --short
 git fetch --tags origin
 
 # 从固定标签提取发布脚本并安装为仅 root 可修改和执行。
-git show v1.0.3:scripts/deploy-release.sh | sudo tee /usr/local/sbin/deploy-personalink-release > /dev/null
+git show v1.0.4:scripts/deploy-release.sh | sudo tee /usr/local/sbin/deploy-personalink-release > /dev/null
 sudo chmod 700 /usr/local/sbin/deploy-personalink-release
 
 # 第一次仍由管理员手工运行，脚本会自动备份并检查数据。
-sudo /usr/local/sbin/deploy-personalink-release v1.0.3
+sudo /usr/local/sbin/deploy-personalink-release v1.0.4
 ```
 
-成功输出必须同时出现 `发布成功：v1.0.3` 和 `MySQL 数据清单保持一致`。脚本会更新自己的已安装副本，以后发布新版本时无需重复提取。
+成功输出必须同时出现 `发布成功：v1.0.4` 和 `MySQL 数据清单保持一致`。脚本会更新自己的已安装副本，并安装只读巡检命令；以后发布新版本时无需重复提取。
 
 ## 3. 创建专用 SSH 部署权限
 
@@ -73,7 +73,7 @@ sudo -n /usr/local/sbin/deploy-personalink-release
 
 ```bash
 # 触发固定版本的生产部署。
-gh workflow run deploy-production.yml --repo Abner199/PersonaLink_MySQL_20260821 -f release_tag=v1.0.3
+gh workflow run deploy-production.yml --repo Abner199/PersonaLink_MySQL_20260821 -f release_tag=v1.0.4
 
 # 查看最近的 CD 运行记录。
 gh run list --repo Abner199/PersonaLink_MySQL_20260821 --workflow deploy-production.yml --limit 5
@@ -95,6 +95,13 @@ CD 使用 `production` Environment，因此启用审核后必须由授权人员�
 7. 只有数据一致才更新 systemd、Nginx 兼容配置并重启服务。
 8. 等待健康检查，通过 `/api/version` 确认运行版本与目标标签一致。
 
+部署完成后可随时执行一条只读巡检命令。地址参数应与当前实际协议一致；尚未配置 HTTPS 时使用 `http://`：
+
+```bash
+# 检查服务、Nginx、版本、MySQL 清单和照片墙响应，不修改数据。
+sudo /usr/local/sbin/check-personalink http://peaceinside.fun
+```
+
 如果部署期间恰好有新学生注册，前后清单会不同，脚本会安全停止并保留数据，不会删除新注册信息。建议在低使用时段重新执行。
 
 ## 7. CI/CD 失败处理
@@ -111,4 +118,4 @@ CD 使用 `production` Environment，因此启用审核后必须由授权人员�
 - CI/CD 只负责代码版本，实时学生数据仍以 MySQL 和异地备份为准。
 - 不在 workflow 中保存数据库密码、SSH 私钥、`.env` 或真实 SQL 备份。
 - 不把 CD 改为每次推送 `main` 自动部署；生产环境只部署经过测试并发布的固定标签。
-- 已发布标签不得移动或覆盖。需要修复时增加补丁版本，例如从 `v1.0.3` 发布 `v1.0.4`。
+- 已发布标签不得移动或覆盖。需要修复时增加补丁版本，例如从 `v1.0.4` 发布 `v1.0.5`。

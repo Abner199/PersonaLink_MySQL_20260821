@@ -8,7 +8,7 @@
 
 按本项目推荐的演示流程完成后，网页会显示 3 个班级、42 名学生及照片墙；学生当前使用随前端发布的本地默认头像。要得到这些内容，必须执行第 9.1 节把仓库模拟快照导入 MySQL，仅建表或仅创建管理员不会自动产生班级和学生。
 
-当前稳定版本为 [`v1.0.3`](https://github.com/Abner199/PersonaLink_MySQL_20260821/releases/tag/v1.0.3)。需要长期复现完全相同的代码时应部署该标签；需要持续接收最新修改时使用 `main`。
+当前稳定版本为 [`v1.0.4`](https://github.com/Abner199/PersonaLink_MySQL_20260821/releases/tag/v1.0.4)。需要长期复现完全相同的代码时应部署该标签；需要持续接收最新修改时使用 `main`。
 
 命令分为两类：标有“Windows PowerShell”的命令在自己的 Windows 电脑执行，其余 `bash` 命令均在 SSH 登录后的 Ubuntu 服务器执行。命令中的 `你的公网IP` 和 `你的域名` 是占位内容，必须替换为真实值，不要原样输入。本教程的 MySQL 应用账号密码固定为 `123456`，可直接复制。
 
@@ -139,11 +139,11 @@ git status --short
 
 应看到当前分支为 `main`，`git status --short` 应没有输出。
 
-若本次要固定部署 `v1.0.3`，克隆完成后再执行以下两条命令。固定标签适合教学复现和问题溯源；此后不要在服务器直接修改代码：
+若本次要固定部署 `v1.0.4`，克隆完成后再执行以下两条命令。固定标签适合教学复现和问题溯源；此后不要在服务器直接修改代码：
 
 ```bash
 cd /srv/personalink
-git switch --detach v1.0.3
+git switch --detach v1.0.4
 ```
 
 正常情况下，`git clone` 不会出现用户名和密码提示。如果仍然出现 `Username for 'https://github.com'`，按 `Ctrl+C` 取消，不要输入 GitHub 密码。然后执行下面的匿名克隆命令，它会临时忽略服务器中可能残留的错误凭据：
@@ -304,7 +304,7 @@ curl -fsS http://127.0.0.1:3003/health && echo
 curl -fsS http://127.0.0.1:3003/api/version && echo
 ```
 
-健康检查的正确结果包含 `"status":"ok"`、`"database":"mysql"` 和 `"version":"1.0.3"`；版本接口应返回 `"release":"v1.0.3"`。等待 2 秒是为了避免 systemd 刚启动 Node、端口尚未监听时立即检查而误报连接失败。
+健康检查的正确结果包含 `"status":"ok"`、`"database":"mysql"` 和 `"version":"1.0.4"`；版本接口应返回 `"release":"v1.0.4"`。等待 2 秒是为了避免 systemd 刚启动 Node、端口尚未监听时立即检查而误报连接失败。
 
 如果第 9 步选择了教学演示数据，再核对后端 API 确实返回 3 个班级和 42 名学生：
 
@@ -397,7 +397,7 @@ https://你的域名/health
 逐项确认：
 
 - [ ] `https://你的域名/health` 或 `http://公网IP/health` 返回 `status: ok`。
-- [ ] `/api/version` 返回当前部署的版本；部署本稳定版时应为 `v1.0.3`。
+- [ ] `/api/version` 返回当前部署的版本；部署本稳定版时应为 `v1.0.4`。
 - [ ] 管理员能登录并修改自己的密码。
 - [ ] 管理员能创建班级和普通用户。
 - [ ] 普通用户能注册、登录、修改资料和头像。
@@ -430,14 +430,14 @@ git status --short
 
 # 获取标签并从固定版本提取发布脚本，不提前修改网站代码。
 git fetch --tags origin
-git show v1.0.3:scripts/deploy-release.sh | sudo tee /usr/local/sbin/deploy-personalink-release > /dev/null
+git show v1.0.4:scripts/deploy-release.sh | sudo tee /usr/local/sbin/deploy-personalink-release > /dev/null
 sudo chmod 700 /usr/local/sbin/deploy-personalink-release
 
 # 自动备份 MySQL、比对数据并部署固定版本。
-sudo /usr/local/sbin/deploy-personalink-release v1.0.3
+sudo /usr/local/sbin/deploy-personalink-release v1.0.4
 ```
 
-成功时最后应显示 `发布成功：v1.0.3；MySQL 数据清单保持一致。`。以后升级只需先确认新标签的发布说明，再执行 `sudo /usr/local/sbin/deploy-personalink-release 新标签`。
+成功时最后应显示 `发布成功：v1.0.4；MySQL 数据清单保持一致。`。以后升级只需先确认新标签的发布说明，再执行 `sudo /usr/local/sbin/deploy-personalink-release 新标签`。
 
 ### 15.2 仅开发测试：跟随 main 手工更新
 
@@ -480,6 +480,53 @@ curl http://127.0.0.1:3003/api/version
 ### 15.3 GitHub Actions CI/CD
 
 仓库已提供自动 CI 和需要人工触发、可设置审核人的生产 CD。首次配置 SSH 用户、GitHub Environment、Secrets 和完整故障处理步骤，请阅读 [CI/CD 发布与安全部署](./CI-CD发布与安全部署.md)。CI 中的模拟数据导入只发生在临时 MySQL，生产 CD 不执行模拟数据导入。
+
+### 15.4 真实现场记录：照片墙网络错误与零丢数据升级
+
+2026-09-08，线上手机能够打开首页，但照片墙频繁显示“网络错误”。按三层链路排查后得到：
+
+- 本机 `/health` 正常，证明 Express 能连接 MySQL。
+- `/api/version` 返回 404，证明服务器仍运行没有版本接口的旧代码。
+- HTTPS 443 无法连接，但 HTTP 正常；站点决定暂不配置 HTTPS，因此排障全程使用 `http://peaceinside.fun`。
+- 升级前数据库清单为 7 个班级、89 个账号、88 名学生、50 份已存头像、1,505,310 字节头像数据和 0 个孤立账号。
+
+升级前先保存清单并创建可校验备份：
+
+```bash
+# 保存升级前清单；只读，不修改 MySQL。
+cd /srv/personalink/backend
+npm run db:verify --silent | tee /tmp/personalink-before-upgrade.json
+
+# 工作区无输出后获取固定标签并创建四件套备份。
+cd /srv/personalink
+git status --short
+git fetch --tags origin
+sudo /usr/local/sbin/backup-personalink
+sudo ls -lht /var/backups/personalink
+
+# 校验最新 SQL gzip、代码版本和数据清单。
+sudo bash -c 'cd /var/backups/personalink; checksum=$(ls -1t personalink-*.sql.gz.sha256 | head -n 1); sha256sum -c "$checksum"; gzip -t "${checksum%.sha256}"'
+```
+
+首次升级在 `[8/9]` 遇到 `gzip directive is duplicate`。由于 `[7/9]` 已通过，数据库清单没有变化；失败发生在 Nginx 配置检查，服务也尚未重启。现场采用可恢复改名，不删除配置：
+
+```bash
+# 让 Nginx 不再加载旧附加文件，文件仍然保留。
+sudo mv /etc/nginx/conf.d/personalink-gzip.conf /etc/nginx/conf.d/personalink-gzip.conf.disabled
+sudo nginx -t
+sudo systemctl daemon-reload
+sudo systemctl restart personalink
+sudo systemctl reload nginx
+```
+
+随后固定部署 v1.0.3 成功，升级前后 11 项数据库清单完全一致，公网照片墙列表实测 HTTP 200、37,509 字节、0.022 秒，手机恢复正常访问。v1.0.4 已把全过程固化为一条只读巡检命令：
+
+```bash
+# 当前站点暂未启用 HTTPS，因此明确传入 HTTP 地址。
+sudo /usr/local/sbin/check-personalink http://peaceinside.fun
+```
+
+巡检失败只报告问题，不自动重启、不切换代码、不修改 Nginx，也不写入 MySQL。排障期间不要执行 `npm run db:migrate-json` 或 `npm run db:schema`；它们不是生产升级命令。
 
 ## 16. 每日 MySQL 备份
 

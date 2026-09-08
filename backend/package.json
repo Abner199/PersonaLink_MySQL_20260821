@@ -1,6 +1,6 @@
 {
   "name": "vue-user-sharing-backend",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Backend server for Vue user information sharing",
   "main": "server.js",
   "scripts": {

@@ -70,6 +70,9 @@ jobs:
       - name: 检查全部后端 JavaScript 语法
         run: node scripts/check-backend-syntax.js
 
+      - name: 检查 Ubuntu 备份、发布和只读巡检脚本语法
+        run: bash -n scripts/backup-personalink.sh scripts/deploy-release.sh scripts/check-production.sh
+
       - name: 创建 CI 临时数据库表
         working-directory: backend
         run: npm run db:schema

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# 使用方式：sudo /usr/local/sbin/deploy-personalink-release v1.0.3
+# 使用方式：sudo /usr/local/sbin/deploy-personalink-release v1.0.4
 # 脚本只更新代码和依赖，不执行建表、模拟数据导入或任何删表操作。
 
 RELEASE_TAG="${1:-}"
@@ -14,7 +14,7 @@ fail() {
 }
 
 [[ "$(id -u)" -eq 0 ]] || fail "请使用 sudo 执行。"
-[[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "版本必须形如 v1.0.3。"
+[[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "版本必须形如 v1.0.4。"
 [[ -d "$PROJECT_DIR/.git" ]] || fail "项目目录不是 Git 仓库：$PROJECT_DIR"
 [[ -x "$BACKUP_COMMAND" ]] || fail "备份命令不存在或不可执行：$BACKUP_COMMAND"
 
@@ -56,6 +56,7 @@ node -e "const fs=require('fs');const before=JSON.parse(fs.readFileSync(process.
 
 echo "[8/9] 更新运维文件，检查 Nginx 后重启服务。"
 install -m 700 "$PROJECT_DIR/scripts/backup-personalink.sh" /usr/local/sbin/backup-personalink
+if [[ -f "$PROJECT_DIR/scripts/check-production.sh" ]]; then install -m 700 "$PROJECT_DIR/scripts/check-production.sh" /usr/local/sbin/check-personalink; fi
 install -m 644 "$PROJECT_DIR/deploy/personalink.service" /etc/systemd/system/personalink.service
 if [[ -f "$PROJECT_DIR/scripts/deploy-release.sh" ]]; then install -m 700 "$PROJECT_DIR/scripts/deploy-release.sh" /usr/local/sbin/deploy-personalink-release; fi
 # 保留此安装以兼容已部署的 v1.0.2 脚本；v1.0.3 起源文件仅含注释，可覆盖并停用旧的重复 gzip 声明。
