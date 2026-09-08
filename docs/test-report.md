@@ -27,6 +27,7 @@
 | 独立头像接口 | 通过 | 图片接口返回正确 JPEG 类型、长度和原始字节，缺图时前端仍可回退默认头像 |
 | 数据清单保护 | 通过 | 相同清单比较成功，修改学生数量的清单被正确拒绝 |
 | CI/CD 配置 | 通过 | CI 包含临时 MySQL 集成测试；CD 只接受正式标签并调用受控服务器脚本 |
+| GitHub Actions 运行时 | 通过 | checkout、setup-node 和 upload-artifact 使用 Node.js 24 运行时版本，不再依赖已弃用的 Node.js 20 Action |
 | Ubuntu gzip 兼容 | 通过 | 兼容占位文件不再包含 gzip 指令，避免与 Ubuntu `nginx.conf` 的 `gzip on` 重复 |
 | 生产数据升级核验 | 通过 | v1.0.2 现场升级前后 11 项清单一致，7 个班级、88 名学生、50 份已存头像和头像总字节数均未变化 |
 | MySQL 备份 | 通过 | 实际生成 SQL 文件并计算 SHA-256，文件大小 160141 字节 |

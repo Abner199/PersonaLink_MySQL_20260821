@@ -31,7 +31,7 @@ jobs:
 
     steps:
       - name: 获取用于校验的仓库代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: 校验输入格式和 GitHub Release
         env:
