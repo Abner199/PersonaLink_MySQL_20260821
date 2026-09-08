@@ -8,7 +8,7 @@
 
 按本项目推荐的演示流程完成后，网页会显示 3 个班级、42 名学生及照片墙；学生当前使用随前端发布的本地默认头像。要得到这些内容，必须执行第 9.1 节把仓库模拟快照导入 MySQL，仅建表或仅创建管理员不会自动产生班级和学生。
 
-当前稳定版本为 [`v1.0.2`](https://github.com/Abner199/PersonaLink_MySQL_20260821/releases/tag/v1.0.2)。需要长期复现完全相同的代码时应部署该标签；需要持续接收最新修改时使用 `main`。
+当前稳定版本为 [`v1.0.3`](https://github.com/Abner199/PersonaLink_MySQL_20260821/releases/tag/v1.0.3)。需要长期复现完全相同的代码时应部署该标签；需要持续接收最新修改时使用 `main`。
 
 命令分为两类：标有“Windows PowerShell”的命令在自己的 Windows 电脑执行，其余 `bash` 命令均在 SSH 登录后的 Ubuntu 服务器执行。命令中的 `你的公网IP` 和 `你的域名` 是占位内容，必须替换为真实值，不要原样输入。本教程的 MySQL 应用账号密码固定为 `123456`，可直接复制。
 
@@ -139,11 +139,11 @@ git status --short
 
 应看到当前分支为 `main`，`git status --short` 应没有输出。
 
-若本次要固定部署 `v1.0.2`，克隆完成后再执行以下两条命令。固定标签适合教学复现和问题溯源；此后不要在服务器直接修改代码：
+若本次要固定部署 `v1.0.3`，克隆完成后再执行以下两条命令。固定标签适合教学复现和问题溯源；此后不要在服务器直接修改代码：
 
 ```bash
 cd /srv/personalink
-git switch --detach v1.0.2
+git switch --detach v1.0.3
 ```
 
 正常情况下，`git clone` 不会出现用户名和密码提示。如果仍然出现 `Username for 'https://github.com'`，按 `Ctrl+C` 取消，不要输入 GitHub 密码。然后执行下面的匿名克隆命令，它会临时忽略服务器中可能残留的错误凭据：
@@ -304,7 +304,7 @@ curl -fsS http://127.0.0.1:3003/health && echo
 curl -fsS http://127.0.0.1:3003/api/version && echo
 ```
 
-健康检查的正确结果包含 `"status":"ok"`、`"database":"mysql"` 和 `"version":"1.0.2"`；版本接口应返回 `"release":"v1.0.2"`。等待 2 秒是为了避免 systemd 刚启动 Node、端口尚未监听时立即检查而误报连接失败。
+健康检查的正确结果包含 `"status":"ok"`、`"database":"mysql"` 和 `"version":"1.0.3"`；版本接口应返回 `"release":"v1.0.3"`。等待 2 秒是为了避免 systemd 刚启动 Node、端口尚未监听时立即检查而误报连接失败。
 
 如果第 9 步选择了教学演示数据，再核对后端 API 确实返回 3 个班级和 42 名学生：
 
@@ -397,7 +397,7 @@ https://你的域名/health
 逐项确认：
 
 - [ ] `https://你的域名/health` 或 `http://公网IP/health` 返回 `status: ok`。
-- [ ] `/api/version` 返回当前部署的版本；部署本稳定版时应为 `v1.0.2`。
+- [ ] `/api/version` 返回当前部署的版本；部署本稳定版时应为 `v1.0.3`。
 - [ ] 管理员能登录并修改自己的密码。
 - [ ] 管理员能创建班级和普通用户。
 - [ ] 普通用户能注册、登录、修改资料和头像。
@@ -430,14 +430,14 @@ git status --short
 
 # 获取标签并从固定版本提取发布脚本，不提前修改网站代码。
 git fetch --tags origin
-git show v1.0.2:scripts/deploy-release.sh | sudo tee /usr/local/sbin/deploy-personalink-release > /dev/null
+git show v1.0.3:scripts/deploy-release.sh | sudo tee /usr/local/sbin/deploy-personalink-release > /dev/null
 sudo chmod 700 /usr/local/sbin/deploy-personalink-release
 
 # 自动备份 MySQL、比对数据并部署固定版本。
-sudo /usr/local/sbin/deploy-personalink-release v1.0.2
+sudo /usr/local/sbin/deploy-personalink-release v1.0.3
 ```
 
-成功时最后应显示 `发布成功：v1.0.2；MySQL 数据清单保持一致。`。以后升级只需先确认新标签的发布说明，再执行 `sudo /usr/local/sbin/deploy-personalink-release 新标签`。
+成功时最后应显示 `发布成功：v1.0.3；MySQL 数据清单保持一致。`。以后升级只需先确认新标签的发布说明，再执行 `sudo /usr/local/sbin/deploy-personalink-release 新标签`。
 
 ### 15.2 仅开发测试：跟随 main 手工更新
 
@@ -455,7 +455,6 @@ git status --short
 GIT_TERMINAL_PROMPT=0 git -c credential.helper= pull --ff-only origin main
 sudo install -m 700 /srv/personalink/scripts/backup-personalink.sh /usr/local/sbin/backup-personalink
 sudo install -m 644 /srv/personalink/deploy/personalink.service /etc/systemd/system/personalink.service
-sudo install -m 644 /srv/personalink/deploy/personalink-gzip.conf /etc/nginx/conf.d/personalink-gzip.conf
 sudo systemctl daemon-reload
 
 # 3. 更新后端依赖并检查数据库
@@ -760,6 +759,23 @@ try_files $uri $uri/ /index.html;
 ### API 请求失败
 
 确认 `location ^~ /api/` 的 `proxy_pass` 是 `http://127.0.0.1:3003`，末尾没有多余路径；再执行 `sudo nginx -t`。
+
+### 发布在 `[8/9]` 提示 gzip directive is duplicate
+
+这是旧附加配置与 Ubuntu 默认 gzip 声明重复，不是数据库错误。v1.0.3 已修复；旧版现场可先把附加文件改为不会被 Nginx 加载的名称，再检查配置并完成服务启动：
+
+```bash
+# 改名保留旧配置，不删除文件，也不访问 MySQL。
+sudo mv /etc/nginx/conf.d/personalink-gzip.conf /etc/nginx/conf.d/personalink-gzip.conf.disabled
+sudo nginx -t
+sudo systemctl daemon-reload
+sudo systemctl restart personalink
+sudo systemctl reload nginx
+curl -fsS http://127.0.0.1:3003/health && echo
+curl -fsS http://127.0.0.1:3003/api/version && echo
+```
+
+若发布日志已经通过 `[7/9]`，表示升级前后数据库清单一致；上述操作只恢复 Nginx 与后端服务。之后部署 v1.0.3 会用无指令兼容文件覆盖旧路径，避免问题再次发生。
 
 ### MySQL 提示 Access denied
 

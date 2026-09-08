@@ -26,14 +26,14 @@ git status --short
 git fetch --tags origin
 
 # 从固定标签提取发布脚本并安装为仅 root 可修改和执行。
-git show v1.0.2:scripts/deploy-release.sh | sudo tee /usr/local/sbin/deploy-personalink-release > /dev/null
+git show v1.0.3:scripts/deploy-release.sh | sudo tee /usr/local/sbin/deploy-personalink-release > /dev/null
 sudo chmod 700 /usr/local/sbin/deploy-personalink-release
 
 # 第一次仍由管理员手工运行，脚本会自动备份并检查数据。
-sudo /usr/local/sbin/deploy-personalink-release v1.0.2
+sudo /usr/local/sbin/deploy-personalink-release v1.0.3
 ```
 
-成功输出必须同时出现 `发布成功：v1.0.2` 和 `MySQL 数据清单保持一致`。脚本会更新自己的已安装副本，以后发布新版本时无需重复提取。
+成功输出必须同时出现 `发布成功：v1.0.3` 和 `MySQL 数据清单保持一致`。脚本会更新自己的已安装副本，以后发布新版本时无需重复提取。
 
 ## 3. 创建专用 SSH 部署权限
 
@@ -73,7 +73,7 @@ sudo -n /usr/local/sbin/deploy-personalink-release
 
 ```bash
 # 触发固定版本的生产部署。
-gh workflow run deploy-production.yml --repo Abner199/PersonaLink_MySQL_20260821 -f release_tag=v1.0.2
+gh workflow run deploy-production.yml --repo Abner199/PersonaLink_MySQL_20260821 -f release_tag=v1.0.3
 
 # 查看最近的 CD 运行记录。
 gh run list --repo Abner199/PersonaLink_MySQL_20260821 --workflow deploy-production.yml --limit 5
@@ -92,7 +92,7 @@ CD 使用 `production` Environment，因此启用审核后必须由授权人员�
 4. 获取并切换到指定版本标签，核对 7 处版本号。
 5. 使用 lockfile 安装依赖并构建前端。
 6. 再次读取数据库清单，比对班级、用户、学生、头像等 11 项数据。
-7. 只有数据一致才更新 systemd、gzip 配置并重启服务。
+7. 只有数据一致才更新 systemd、Nginx 兼容配置并重启服务。
 8. 等待健康检查，通过 `/api/version` 确认运行版本与目标标签一致。
 
 如果部署期间恰好有新学生注册，前后清单会不同，脚本会安全停止并保留数据，不会删除新注册信息。建议在低使用时段重新执行。
@@ -103,7 +103,7 @@ CD 使用 `production` Environment，因此启用审核后必须由授权人员�
 - CD 提示工作区不干净：登录服务器执行 `cd /srv/personalink` 和 `git status --short`，先人工确认文件来源。
 - CD 提示数据清单变化：不要强行继续，查看最新四件套备份和服务器操作记录。
 - 健康检查失败：执行 `sudo journalctl -u personalink -n 100 --no-pager`。
-- Nginx 检查失败：执行 `sudo nginx -t`，修复配置后再重载。
+- Nginx 检查失败：执行 `sudo nginx -t`。若提示 `gzip directive is duplicate in /etc/nginx/conf.d/personalink-gzip.conf`，执行 `sudo mv /etc/nginx/conf.d/personalink-gzip.conf /etc/nginx/conf.d/personalink-gzip.conf.disabled`，再重新检查；改名可恢复且不影响 MySQL。
 - SSH 失败：核对安全组 22 端口、部署用户、公钥、主机指纹和四个 production Secrets。
 
 ## 8. 安全边界
@@ -111,4 +111,4 @@ CD 使用 `production` Environment，因此启用审核后必须由授权人员�
 - CI/CD 只负责代码版本，实时学生数据仍以 MySQL 和异地备份为准。
 - 不在 workflow 中保存数据库密码、SSH 私钥、`.env` 或真实 SQL 备份。
 - 不把 CD 改为每次推送 `main` 自动部署；生产环境只部署经过测试并发布的固定标签。
-- 已发布标签不得移动或覆盖。需要修复时增加补丁版本，例如从 `v1.0.2` 发布 `v1.0.3`。
+- 已发布标签不得移动或覆盖。需要修复时增加补丁版本，例如从 `v1.0.3` 发布 `v1.0.4`。
